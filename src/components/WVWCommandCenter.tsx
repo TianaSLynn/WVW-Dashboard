@@ -1117,8 +1117,8 @@ export default function WVWCommandCenter() {
                       <div key={d} className="text-center font-medium" style={{ color: C.charcoal }}>{d}</div>
                     ))}
                     {Object.entries(postingStatus?.schedule ?? {}).map(([platform, days]) => (
-                      <>
-                        <div key={platform} className="font-medium capitalize pr-2" style={{ color: C.warmBlack }}>
+                      <React.Fragment key={platform}>
+                        <div className="font-medium capitalize pr-2" style={{ color: C.warmBlack }}>
                           {platform.replace(/_/g, " ")}
                         </div>
                         {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d) => (
@@ -1129,7 +1129,7 @@ export default function WVWCommandCenter() {
                             }
                           </div>
                         ))}
-                      </>
+                      </React.Fragment>
                     ))}
                   </div>
                 </CardContent>
