@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
 import { getTodayPlatforms, getTodayTheme } from "@/lib/schedule";
+
+export const maxDuration = 60;
 import type { Platform } from "@/lib/schedule";
 import { generateDailyPosts } from "@/lib/generate-posts";
 import { postToLinkedIn } from "@/lib/linkedin";
 import { postToTwitter } from "@/lib/twitter";
 import { postToBluesky } from "@/lib/bluesky";
-import { postToFacebook, postToInstagram, postToThreads } from "@/lib/facebook";
+import { postToFacebook, postToInstagram, postToInstagramCarousel, postToThreads } from "@/lib/facebook";
 import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
 
@@ -105,13 +107,28 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Instagram (Meta Graph API) ──
+  // ── Instagram carousel (Meta Graph API) ──
   if (platforms.includes("instagram") && posts.instagram) {
     if (!process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID || !process.env.FACEBOOK_PAGE_ACCESS_TOKEN) {
       log("instagram", posts.instagram, { status: "skipped", error: "Instagram not configured" });
     } else {
-      const imageUrl = `${baseUrl}/api/og?text=${encodeURIComponent(posts.instagram.slice(0, 200))}&theme=${encodeURIComponent(theme)}`;
-      log("instagram", posts.instagram, await run("instagram", () => postToInstagram(posts.instagram!, imageUrl)));
+      const raw = posts.instagram;
+      // Parse carousel format: slides separated by |||, HASHTAGS: on its own line
+      const hashtagLine = raw.match(/HASHTAGS:\s*(.*?)$/m)?.[1]?.trim() ?? "";
+      const slidesBlock = raw.replace(/HASHTAGS:.*$/m, "").trim();
+      const slides = slidesBlock.split("|||").map((s) => s.trim()).filter(Boolean);
+
+      if (slides.length >= 2) {
+        const caption = `${slides[slides.length - 1]}\n\n${hashtagLine}`.trim();
+        const imageUrls = slides.map((slide) =>
+          `${baseUrl}/api/og?text=${encodeURIComponent(slide.slice(0, 200))}&theme=${encodeURIComponent(theme)}`
+        );
+        log("instagram", raw, await run("instagram", () => postToInstagramCarousel(slides, imageUrls, caption)));
+      } else {
+        // Fallback: single image post
+        const imageUrl = `${baseUrl}/api/og?text=${encodeURIComponent(raw.slice(0, 200))}&theme=${encodeURIComponent(theme)}`;
+        log("instagram", raw, await run("instagram", () => postToInstagram(raw, imageUrl)));
+      }
     }
   }
 

@@ -18,7 +18,6 @@ export async function postToInstagram(caption: string, imageUrl: string): Promis
   const igId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
   if (!token || !igId) throw new Error("Instagram credentials not configured");
 
-  // Step 1 — create media container
   const containerRes = await fetch(`https://graph.facebook.com/${FB_VERSION}/${igId}/media`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -28,13 +27,57 @@ export async function postToInstagram(caption: string, imageUrl: string): Promis
 
   const { id: creationId } = await containerRes.json() as { id: string };
 
-  // Step 2 — publish
   const publishRes = await fetch(`https://graph.facebook.com/${FB_VERSION}/${igId}/media_publish`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ creation_id: creationId, access_token: token }),
   });
   if (!publishRes.ok) throw new Error(`Instagram publish ${publishRes.status}: ${await publishRes.text()}`);
+}
+
+export async function postToInstagramCarousel(
+  slides: string[],
+  imageUrls: string[],
+  caption: string,
+): Promise<void> {
+  const token = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  const igId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
+  if (!token || !igId) throw new Error("Instagram credentials not configured");
+
+  // Step 1 — create a media container for each slide
+  const childIds: string[] = [];
+  for (const imageUrl of imageUrls) {
+    const res = await fetch(`https://graph.facebook.com/${FB_VERSION}/${igId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: imageUrl, is_carousel_item: true, access_token: token }),
+    });
+    if (!res.ok) throw new Error(`Instagram carousel item ${res.status}: ${await res.text()}`);
+    const { id } = await res.json() as { id: string };
+    childIds.push(id);
+  }
+
+  // Step 2 — create carousel container
+  const carouselRes = await fetch(`https://graph.facebook.com/${FB_VERSION}/${igId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      media_type: "CAROUSEL",
+      children: childIds.join(","),
+      caption,
+      access_token: token,
+    }),
+  });
+  if (!carouselRes.ok) throw new Error(`Instagram carousel ${carouselRes.status}: ${await carouselRes.text()}`);
+  const { id: carouselId } = await carouselRes.json() as { id: string };
+
+  // Step 3 — publish
+  const publishRes = await fetch(`https://graph.facebook.com/${FB_VERSION}/${igId}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ creation_id: carouselId, access_token: token }),
+  });
+  if (!publishRes.ok) throw new Error(`Instagram carousel publish ${publishRes.status}: ${await publishRes.text()}`);
 }
 
 export async function postToThreads(text: string): Promise<void> {

@@ -497,10 +497,10 @@ export default function WVWCommandCenter() {
               >
                 <RefreshCcw className="w-4 h-4 mr-2" /> Refresh
               </Button>
-              <Button variant="outline" className="rounded-2xl text-sm" style={{ borderColor: C.gold, color: C.charcoal }}>
+              <Button variant="outline" className="rounded-2xl text-sm opacity-50 cursor-not-allowed" style={{ borderColor: C.gold, color: C.charcoal }} title="Coming soon">
                 <Megaphone className="w-4 h-4 mr-2" /> Auto-Post Queue
               </Button>
-              <Button variant="outline" className="rounded-2xl text-sm" style={{ borderColor: C.gold, color: C.charcoal }}>
+              <Button variant="outline" className="rounded-2xl text-sm opacity-50 cursor-not-allowed" style={{ borderColor: C.gold, color: C.charcoal }} title="Coming soon">
                 <Bell className="w-4 h-4 mr-2" /> Alerts
               </Button>
             </div>
@@ -930,8 +930,9 @@ export default function WVWCommandCenter() {
                             </div>
                             <Button
                               variant="ghost"
-                              className="w-full rounded-xl justify-between text-xs h-8"
+                              className="w-full rounded-xl justify-between text-xs h-8 opacity-50 cursor-not-allowed"
                               style={{ color: C.forest }}
+                              title="Coming soon"
                             >
                               Open Build Flow <ChevronRight className="w-3.5 h-3.5" />
                             </Button>
@@ -1144,8 +1145,10 @@ export default function WVWCommandCenter() {
                     >
                       <p><strong style={{ color: C.warmBlack }}>Daily cron:</strong> 8am ET (12:00 UTC)</p>
                       <p><strong style={{ color: C.warmBlack }}>Wisdom cron:</strong> Mondays 9am UTC</p>
-                      <p><strong style={{ color: C.warmBlack }}>LinkedIn:</strong> posts directly</p>
-                      <p><strong style={{ color: C.warmBlack }}>Instagram / TikTok / Threads:</strong> queued in Buffer</p>
+                      <p><strong style={{ color: C.warmBlack }}>Newsletter cron:</strong> Mon / Wed / Fri 1pm UTC</p>
+                      <p><strong style={{ color: C.warmBlack }}>Instagram:</strong> carousel posts via Meta API</p>
+                      <p><strong style={{ color: C.warmBlack }}>Threads / Twitter / Facebook:</strong> posts directly</p>
+                      <p><strong style={{ color: C.warmBlack }}>TikTok:</strong> queued in Buffer</p>
                     </div>
                   </CardContent>
                 </Card>

@@ -17,7 +17,7 @@ const PLATFORM_INSTRUCTIONS: Record<Platform, string> = {
   linkedin_wvw:
     "LinkedIn WVW — B2B authority voice, 120-160 words. Speaks directly to HR leaders and operations executives. Consulting lens. Precise. No warmth-and-fuzziness.",
   instagram:
-    "Instagram caption — 80-120 words. Warm but grounded. Ends with 'Save this.' or 'Share with your team.' Max 3 relevant hashtags at the end.",
+    "Instagram carousel — 4 slides for a branded quote carousel. Separate each slide with ||| (three pipes, nothing else on that delimiter line). Slide 1: hook or structural truth (1-2 sentences, bold and clear). Slide 2: reframe or 'here's why.' Slide 3: the shift — what changes when you see it differently. Slide 4: closing line ending with 'Save this.' or 'Share with your team.' Then on a new line write: HASHTAGS: [2-4 relevant hashtags]. Each slide must be under 160 characters. No hashtags within slides.",
   threads:
     "Threads — 1-3 punchy sentences. Direct structural observation. No hashtags. No fluff. Under 300 characters.",
   tiktok:
