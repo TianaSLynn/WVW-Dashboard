@@ -244,9 +244,6 @@ function OutputPanel({
 
 // ─── Main component ───────────────────────────────────────────────
 export default function WVWCommandCenter() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   const [search, setSearch] = useState("");
   const [selectedTheme, setSelectedTheme] = useState("Burnout / Moral Injury");
   const [contentData, setContentData] = useState<ContentData | null>(null);
@@ -569,19 +566,17 @@ export default function WVWCommandCenter() {
                     <CardDescription style={{ color: C.charcoal }}>Engagement, leads, and newsletter growth over time.</CardDescription>
                   </CardHeader>
                   <CardContent className="h-[300px]">
-                    {mounted ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={monthlyTrend}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#DDD7CD" />
-                          <XAxis dataKey="month" tick={{ fontSize: 12, fill: C.charcoal }} />
-                          <YAxis tick={{ fontSize: 12, fill: C.charcoal }} />
-                          <Tooltip contentStyle={{ background: C.ivory, borderColor: "#DDD7CD", borderRadius: 12 }} />
-                          <Line type="monotone" dataKey="engagement" stroke={C.forest}    strokeWidth={2} dot={false} name="Engagement %" />
-                          <Line type="monotone" dataKey="leads"      stroke={C.gold}      strokeWidth={2} dot={false} name="Leads" />
-                          <Line type="monotone" dataKey="newsletter" stroke={C.rose}      strokeWidth={2} dot={false} name="Newsletter Subs" />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    ) : <div className="h-full rounded-2xl animate-pulse" style={{ background: "#DDD7CD" }} />}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={monthlyTrend}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#DDD7CD" />
+                        <XAxis dataKey="month" tick={{ fontSize: 12, fill: C.charcoal }} />
+                        <YAxis tick={{ fontSize: 12, fill: C.charcoal }} />
+                        <Tooltip contentStyle={{ background: C.ivory, borderColor: "#DDD7CD", borderRadius: 12 }} />
+                        <Line type="monotone" dataKey="engagement" stroke={C.forest}    strokeWidth={2} dot={false} name="Engagement %" />
+                        <Line type="monotone" dataKey="leads"      stroke={C.gold}      strokeWidth={2} dot={false} name="Leads" />
+                        <Line type="monotone" dataKey="newsletter" stroke={C.rose}      strokeWidth={2} dot={false} name="Newsletter Subs" />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
 
@@ -617,17 +612,15 @@ export default function WVWCommandCenter() {
                     <CardDescription style={{ color: C.charcoal }}>What your audience responds to most.</CardDescription>
                   </CardHeader>
                   <CardContent className="h-[280px]">
-                    {mounted ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart data={contentPillars}>
-                          <PolarGrid stroke="#DDD7CD" />
-                          <PolarAngleAxis dataKey="pillar" tick={{ fontSize: 11, fill: C.charcoal }} />
-                          <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10, fill: C.charcoal }} />
-                          <Radar dataKey="strength" stroke={C.forest} fill={C.forest} fillOpacity={0.2} />
-                          <Tooltip contentStyle={{ background: C.ivory, borderColor: "#DDD7CD", borderRadius: 12 }} />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                    ) : <div className="h-full rounded-2xl animate-pulse" style={{ background: "#DDD7CD" }} />}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart data={contentPillars}>
+                        <PolarGrid stroke="#DDD7CD" />
+                        <PolarAngleAxis dataKey="pillar" tick={{ fontSize: 11, fill: C.charcoal }} />
+                        <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10, fill: C.charcoal }} />
+                        <Radar dataKey="strength" stroke={C.forest} fill={C.forest} fillOpacity={0.2} />
+                        <Tooltip contentStyle={{ background: C.ivory, borderColor: "#DDD7CD", borderRadius: 12 }} />
+                      </RadarChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
 
@@ -689,17 +682,15 @@ export default function WVWCommandCenter() {
                     </table>
                   </div>
                   <div className="h-[280px]">
-                    {mounted ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={socialSummary}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#DDD7CD" />
-                          <XAxis dataKey="platform" hide />
-                          <YAxis tick={{ fontSize: 11, fill: C.charcoal }} />
-                          <Tooltip contentStyle={{ background: C.ivory, borderColor: "#DDD7CD", borderRadius: 12 }} />
-                          <Bar dataKey="engagement" fill={C.forest} radius={[4, 4, 0, 0]} name="Engagement %" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : <div className="h-full rounded-2xl animate-pulse" style={{ background: "#DDD7CD" }} />}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={socialSummary}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#DDD7CD" />
+                        <XAxis dataKey="platform" hide />
+                        <YAxis tick={{ fontSize: 11, fill: C.charcoal }} />
+                        <Tooltip contentStyle={{ background: C.ivory, borderColor: "#DDD7CD", borderRadius: 12 }} />
+                        <Bar dataKey="engagement" fill={C.forest} radius={[4, 4, 0, 0]} name="Engagement %" />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </CardContent>
               </Card>
@@ -965,17 +956,15 @@ export default function WVWCommandCenter() {
                     <CardDescription style={{ color: C.charcoal }}>From your live tracker.</CardDescription>
                   </CardHeader>
                   <CardContent className="h-[200px]">
-                    {mounted ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={platformBarData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#DDD7CD" />
-                          <XAxis dataKey="platform" tick={{ fontSize: 10, fill: C.charcoal }} />
-                          <YAxis tick={{ fontSize: 11, fill: C.charcoal }} />
-                          <Tooltip contentStyle={{ background: C.ivory, borderColor: "#DDD7CD", borderRadius: 12 }} />
-                          <Bar dataKey="count" fill={C.sage} radius={[4, 4, 0, 0]} name="Items" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : <div className="h-full rounded-2xl animate-pulse" style={{ background: "#DDD7CD" }} />}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={platformBarData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#DDD7CD" />
+                        <XAxis dataKey="platform" tick={{ fontSize: 10, fill: C.charcoal }} />
+                        <YAxis tick={{ fontSize: 11, fill: C.charcoal }} />
+                        <Tooltip contentStyle={{ background: C.ivory, borderColor: "#DDD7CD", borderRadius: 12 }} />
+                        <Bar dataKey="count" fill={C.sage} radius={[4, 4, 0, 0]} name="Items" />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
               )}

@@ -1,5 +1,5 @@
-import WVWCommandCenter from "@/components/WVWCommandCenter";
+import ClientRoot from "@/components/ClientRoot";
 
 export default function Home() {
-  return <WVWCommandCenter />;
+  return <ClientRoot />;
 }
