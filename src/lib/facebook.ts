@@ -57,13 +57,13 @@ export async function postToInstagramCarousel(
     childIds.push(id);
   }
 
-  // Step 2 — create carousel container
+  // Step 2 — create carousel container (children must be an array)
   const carouselRes = await fetch(`https://graph.facebook.com/${FB_VERSION}/${igId}/media`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       media_type: "CAROUSEL",
-      children: childIds.join(","),
+      children: childIds,
       caption,
       access_token: token,
     }),

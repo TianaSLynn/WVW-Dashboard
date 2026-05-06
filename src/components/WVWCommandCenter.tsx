@@ -242,6 +242,103 @@ function OutputPanel({
   );
 }
 
+// ─── Month plan renderer ──────────────────────────────────────────
+interface WeekPost { day: string; platform: string; format: string; angle: string; }
+interface Week { week: number; dates: string; theme: string; pillar: string; intent: string; posts: WeekPost[]; }
+interface NewsletterItem { date: string; series: string; theme: string; }
+interface RepurposeItem { source: string; repurpose: string[]; }
+interface MonthPlan { month: string; focus: string; weeks: Week[]; newsletterPlan: NewsletterItem[]; repurposeMap: RepurposeItem[]; }
+
+function MonthPlanDisplay({ raw, loading }: { raw: string; loading: boolean }) {
+  const plan = useMemo<MonthPlan | null>(() => {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try { return JSON.parse(match[0]) as MonthPlan; } catch { return null; }
+  }, [raw]);
+
+  if (!plan) {
+    return (
+      <pre className="text-xs leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[32rem]" style={{ color: C.charcoal }}>
+        {raw}{loading && <span className="animate-pulse">▌</span>}
+      </pre>
+    );
+  }
+
+  const platformColor: Record<string, string> = {
+    "LinkedIn Personal": C.forest,
+    "LinkedIn WVW": C.sage,
+    "Instagram": C.rose,
+    "Threads": C.charcoal,
+    "Twitter": "#1DA1F2",
+    "Facebook": "#4267B2",
+    "Bluesky": "#0085ff",
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+        <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Monthly Focus</p>
+        <p className="font-serif text-base font-medium">{plan.focus}</p>
+      </div>
+
+      {plan.weeks?.map((week) => (
+        <div key={week.week} className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: C.forest, color: C.bone }}>
+              Week {week.week} · {week.dates}
+            </span>
+            <span className="font-serif text-base font-semibold">{week.theme}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: C.gold + "33", color: C.charcoal }}>{week.pillar}</span>
+          </div>
+          <p className="text-xs" style={{ color: C.charcoal }}>{week.intent}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            {week.posts?.map((post, i) => (
+              <div key={i} className="p-3 rounded-2xl border text-xs space-y-1" style={{ borderColor: "#DDD7CD", background: C.ivory }}>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-xs" style={{ color: C.charcoal }}>{post.day}</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: (platformColor[post.platform] ?? C.charcoal) + "22", color: platformColor[post.platform] ?? C.charcoal }}>
+                    {post.platform}
+                  </span>
+                </div>
+                <span className="block text-xs" style={{ color: C.sage }}>{post.format}</span>
+                <p style={{ color: C.warmBlack }}>{post.angle}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {plan.newsletterPlan?.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium" style={{ color: C.charcoal }}>Newsletter Schedule</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {plan.newsletterPlan.map((nl, i) => (
+              <div key={i} className="p-3 rounded-2xl text-xs" style={{ background: C.ivory, borderColor: "#DDD7CD" }}>
+                <p className="font-medium" style={{ color: C.charcoal }}>{nl.date}</p>
+                <p className="text-xs" style={{ color: C.forest }}>{nl.series}</p>
+                <p style={{ color: C.warmBlack }}>{nl.theme}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {plan.repurposeMap?.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium" style={{ color: C.charcoal }}>Repurpose Map</p>
+          {plan.repurposeMap.map((r, i) => (
+            <div key={i} className="p-3 rounded-2xl text-xs flex items-start gap-3" style={{ background: C.ivory }}>
+              <span className="font-medium shrink-0" style={{ color: C.warmBlack }}>{r.source}</span>
+              <span style={{ color: C.charcoal }}>→</span>
+              <span style={{ color: C.charcoal }}>{r.repurpose.join(" · ")}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────
 export default function WVWCommandCenter() {
   const [search, setSearch] = useState("");
@@ -285,6 +382,9 @@ export default function WVWCommandCenter() {
 
   const themeStream  = useStream();
   const wisdomStream = useStream();
+  const monthStream  = useStream();
+  const [showMonthPlan, setShowMonthPlan] = useState(false);
+
   const activeStream = modal?.title.includes("Theme") ? themeStream : wisdomStream;
 
   // ── Fetch real content data ──
@@ -413,6 +513,12 @@ export default function WVWCommandCenter() {
   const closeModal = () => {
     activeStream.stop();
     setModal(null);
+  };
+
+  const buildMonth = () => {
+    setShowMonthPlan(true);
+    const month = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
+    monthStream.run("/api/generate/month-plan", { month });
   };
 
   const copyOutput = () => {
@@ -884,8 +990,13 @@ export default function WVWCommandCenter() {
                         variant="outline"
                         className="rounded-2xl text-sm"
                         style={{ borderColor: C.gold, color: C.charcoal }}
+                        onClick={buildMonth}
+                        disabled={monthStream.loading}
                       >
-                        <CalendarDays className="w-4 h-4 mr-2" /> Build Month
+                        {monthStream.loading
+                          ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Building…</>
+                          : <><CalendarDays className="w-4 h-4 mr-2" /> Build Month</>
+                        }
                       </Button>
                     </div>
                   </div>
@@ -966,6 +1077,53 @@ export default function WVWCommandCenter() {
                         <Bar dataKey="count" fill={C.sage} radius={[4, 4, 0, 0]} name="Items" />
                       </BarChart>
                     </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Month Plan Panel */}
+              {showMonthPlan && (
+                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="font-serif text-xl flex items-center gap-2">
+                          <CalendarDays className="w-5 h-5" style={{ color: C.forest }} />
+                          Monthly Content Plan
+                        </CardTitle>
+                        <CardDescription style={{ color: C.charcoal }}>
+                          {monthStream.loading ? "Claude is building your plan…" : "Copy each week into your content tracker or Notion."}
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2">
+                        {monthStream.output && (
+                          <button
+                            onClick={() => navigator.clipboard.writeText(monthStream.output).catch(() => {})}
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl"
+                            style={{ background: "#DDD7CD", color: C.charcoal }}
+                          >
+                            <Copy className="w-3 h-3" /> Copy All
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setShowMonthPlan(false); monthStream.clear(); }}
+                          className="p-1.5 rounded-xl hover:bg-[#EDE8DF]"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {monthStream.loading && !monthStream.output && (
+                      <div className="flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}>
+                        <Loader2 className="w-4 h-4 animate-spin" style={{ color: C.forest }} />
+                        Generating your {new Date().toLocaleString("en-US", { month: "long" })} content plan…
+                      </div>
+                    )}
+                    {monthStream.output && (
+                      <MonthPlanDisplay raw={monthStream.output} loading={monthStream.loading} />
+                    )}
                   </CardContent>
                 </Card>
               )}
