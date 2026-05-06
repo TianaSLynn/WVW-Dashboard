@@ -6,6 +6,7 @@ import {
   AlertCircle,
   BarChart3,
   Bell,
+  BookOpen,
   Brain,
   CalendarDays,
   CheckCircle2,
@@ -15,9 +16,11 @@ import {
   Filter,
   FolderKanban,
   Gauge,
+  Globe,
   Lightbulb,
   Link2,
   Loader2,
+  Mail,
   Megaphone,
   MessageSquareQuote,
   Play,
@@ -251,6 +254,27 @@ export default function WVWCommandCenter() {
   const [triggering, setTriggering] = useState(false);
   const [triggerResult, setTriggerResult] = useState<string | null>(null);
 
+  // ── Publish tab state ──
+  const [nlSeries, setNlSeries] = useState("Ease, Power, Blackness");
+  const [nlTheme, setNlTheme] = useState("");
+  const [nlTone, setNlTone] = useState("");
+  const [nlLoading, setNlLoading] = useState(false);
+  const [nlResult, setNlResult] = useState<{
+    generated: { subject: string; preview_text: string; content_html: string };
+    beehiiv: Record<string, unknown> | null;
+  } | null>(null);
+  const [nlError, setNlError] = useState<string | null>(null);
+  const [blogTheme, setBlogTheme] = useState("");
+  const [blogAngle, setBlogAngle] = useState("");
+  const [blogLoading, setBlogLoading] = useState(false);
+  const [blogResult, setBlogResult] = useState<{
+    title: string;
+    meta_description: string;
+    content_markdown: string;
+  } | null>(null);
+  const [blogError, setBlogError] = useState<string | null>(null);
+  const [blogCopied, setBlogCopied] = useState(false);
+
   const themeStream  = useStream();
   const wisdomStream = useStream();
   const activeStream = modal?.title.includes("Theme") ? themeStream : wisdomStream;
@@ -300,6 +324,48 @@ export default function WVWCommandCenter() {
       setTriggerResult("Error — check your credentials in .env.local");
     } finally {
       setTriggering(false);
+    }
+  };
+
+  const generateNewsletter = async () => {
+    if (!nlTheme.trim()) return;
+    setNlLoading(true);
+    setNlResult(null);
+    setNlError(null);
+    try {
+      const res = await fetch("/api/newsletter/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ series: nlSeries, theme: nlTheme, tone: nlTone || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Generation failed");
+      setNlResult(data as typeof nlResult);
+    } catch (err) {
+      setNlError((err as Error).message);
+    } finally {
+      setNlLoading(false);
+    }
+  };
+
+  const generateBlog = async () => {
+    if (!blogTheme.trim()) return;
+    setBlogLoading(true);
+    setBlogResult(null);
+    setBlogError(null);
+    try {
+      const res = await fetch("/api/blog/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: blogTheme, angle: blogAngle || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Generation failed");
+      setBlogResult(data as typeof blogResult);
+    } catch (err) {
+      setBlogError((err as Error).message);
+    } finally {
+      setBlogLoading(false);
     }
   };
 
@@ -439,7 +505,7 @@ export default function WVWCommandCenter() {
           {/* ── Tabs ── */}
           <Tabs defaultValue="overview" className="space-y-4">
             <TabsList
-              className="grid grid-cols-4 md:grid-cols-7 rounded-2xl p-1"
+              className="grid grid-cols-4 md:grid-cols-8 rounded-2xl p-1"
               style={{ background: C.bone, border: `1px solid #DDD7CD` }}
             >
               {[
@@ -450,6 +516,7 @@ export default function WVWCommandCenter() {
                 { value: "content",     label: "Content" },
                 { value: "wisdom",      label: "Wisdoms" },
                 { value: "autopost",    label: "Auto-Post" },
+                { value: "publish",     label: "Publish" },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -1135,6 +1202,222 @@ export default function WVWCommandCenter() {
                 </CardContent>
               </Card>
 
+            </TabsContent>
+
+            {/* ── Publish ── */}
+            <TabsContent value="publish" className="space-y-4">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+                {/* Newsletter Generator */}
+                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                  <CardHeader>
+                    <CardTitle className="font-serif text-xl flex items-center gap-2">
+                      <Mail className="w-5 h-5" style={{ color: C.forest }} />
+                      Newsletter Generator
+                    </CardTitle>
+                    <CardDescription style={{ color: C.charcoal }}>
+                      Generate a full issue and send it as a Beehiiv draft in one click.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium" style={{ color: C.charcoal }}>Series</p>
+                      <div className="space-y-2">
+                        {["Ease, Power, Blackness", "Black Excellence", "The Brief"].map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setNlSeries(s)}
+                            className="w-full text-left px-4 py-2.5 rounded-2xl text-sm border transition-colors"
+                            style={{
+                              background: nlSeries === s ? C.forest : C.ivory,
+                              color: nlSeries === s ? C.bone : C.charcoal,
+                              borderColor: nlSeries === s ? C.forest : "#DDD7CD",
+                            }}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium" style={{ color: C.charcoal }}>Theme</p>
+                      <Input
+                        value={nlTheme}
+                        onChange={(e) => setNlTheme(e.target.value)}
+                        placeholder="e.g. rest as radical resistance"
+                        className="rounded-2xl text-sm"
+                        style={{ background: C.ivory, borderColor: "#DDD7CD" }}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium" style={{ color: C.charcoal }}>
+                        Tone note <span style={{ color: C.gold }}>(optional)</span>
+                      </p>
+                      <Input
+                        value={nlTone}
+                        onChange={(e) => setNlTone(e.target.value)}
+                        placeholder="e.g. direct, intimate, structural"
+                        className="rounded-2xl text-sm"
+                        style={{ background: C.ivory, borderColor: "#DDD7CD" }}
+                      />
+                    </div>
+
+                    <Button
+                      className="w-full rounded-2xl"
+                      style={{ background: C.forest, color: C.bone }}
+                      onClick={generateNewsletter}
+                      disabled={nlLoading || !nlTheme.trim()}
+                    >
+                      {nlLoading
+                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</>
+                        : <><Mail className="w-4 h-4 mr-2" /> Generate + Send to Beehiiv</>
+                      }
+                    </Button>
+
+                    {nlError && (
+                      <p className="text-xs text-center" style={{ color: C.rose }}>{nlError}</p>
+                    )}
+
+                    {nlResult && (
+                      <div className="space-y-3 pt-1">
+                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                          <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Subject</p>
+                          <p className="text-sm font-medium">{nlResult.generated.subject}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                          <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Preview Text</p>
+                          <p className="text-sm">{nlResult.generated.preview_text}</p>
+                        </div>
+                        <div
+                          className="p-3 rounded-2xl text-xs flex items-center gap-2"
+                          style={{
+                            background: nlResult.beehiiv && !("error" in nlResult.beehiiv)
+                              ? C.forest + "18"
+                              : C.rose + "22",
+                            color: C.charcoal,
+                          }}
+                        >
+                          {nlResult.beehiiv && !("error" in nlResult.beehiiv)
+                            ? <><CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: C.forest }} /> Draft created in Beehiiv — review and send from app.beehiiv.com</>
+                            : <><AlertCircle className="w-4 h-4 shrink-0" style={{ color: C.rose }} />
+                                {nlResult.beehiiv
+                                  ? String(nlResult.beehiiv.error ?? "Beehiiv error")
+                                  : "Add BEEHIIV_API_KEY and BEEHIIV_PUBLICATION_ID to .env.local"}
+                              </>
+                          }
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Blog Post Generator */}
+                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                  <CardHeader>
+                    <CardTitle className="font-serif text-xl flex items-center gap-2">
+                      <BookOpen className="w-5 h-5" style={{ color: C.forest }} />
+                      Blog Post Generator
+                    </CardTitle>
+                    <CardDescription style={{ color: C.charcoal }}>
+                      Generate a full post for wvwacademy.com — copy and paste into GoDaddy Website Builder.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium" style={{ color: C.charcoal }}>Theme</p>
+                      <Input
+                        value={blogTheme}
+                        onChange={(e) => setBlogTheme(e.target.value)}
+                        placeholder="e.g. Burnout vs moral injury"
+                        className="rounded-2xl text-sm"
+                        style={{ background: C.ivory, borderColor: "#DDD7CD" }}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium" style={{ color: C.charcoal }}>
+                        Angle <span style={{ color: C.gold }}>(optional)</span>
+                      </p>
+                      <Input
+                        value={blogAngle}
+                        onChange={(e) => setBlogAngle(e.target.value)}
+                        placeholder="e.g. for HR directors making policy decisions"
+                        className="rounded-2xl text-sm"
+                        style={{ background: C.ivory, borderColor: "#DDD7CD" }}
+                      />
+                    </div>
+
+                    <div className="p-3 rounded-2xl text-xs" style={{ background: C.ivory, color: C.charcoal }}>
+                      <strong style={{ color: C.warmBlack }}>Output:</strong> 800–1200 word thought leadership post — title, meta description, full body in markdown.
+                    </div>
+
+                    <Button
+                      className="w-full rounded-2xl"
+                      style={{ background: C.forest, color: C.bone }}
+                      onClick={generateBlog}
+                      disabled={blogLoading || !blogTheme.trim()}
+                    >
+                      {blogLoading
+                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</>
+                        : <><BookOpen className="w-4 h-4 mr-2" /> Generate Blog Post</>
+                      }
+                    </Button>
+
+                    {blogError && (
+                      <p className="text-xs text-center" style={{ color: C.rose }}>{blogError}</p>
+                    )}
+
+                    {blogResult && (
+                      <div className="space-y-3 pt-1">
+                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                          <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Title</p>
+                          <p className="text-sm font-medium font-serif">{blogResult.title}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                          <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Meta Description</p>
+                          <p className="text-sm">{blogResult.meta_description}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-medium" style={{ color: C.charcoal }}>Blog Content</p>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(blogResult.content_markdown).catch(() => {});
+                                setBlogCopied(true);
+                                setTimeout(() => setBlogCopied(false), 2000);
+                              }}
+                              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl transition-colors"
+                              style={{
+                                background: blogCopied ? C.forest : "#DDD7CD",
+                                color: blogCopied ? C.bone : C.charcoal,
+                              }}
+                            >
+                              <Copy className="w-3 h-3" />
+                              {blogCopied ? "Copied!" : "Copy all"}
+                            </button>
+                          </div>
+                          <pre
+                            className="text-xs leading-relaxed whitespace-pre-wrap overflow-y-auto"
+                            style={{ color: C.charcoal, maxHeight: "16rem" }}
+                          >
+                            {blogResult.content_markdown}
+                          </pre>
+                        </div>
+                        <div
+                          className="p-3 rounded-2xl text-xs flex items-start gap-2"
+                          style={{ background: C.gold + "22", color: C.charcoal }}
+                        >
+                          <Globe className="w-4 h-4 shrink-0 mt-0.5" style={{ color: C.gold }} />
+                          <span>Copy the content above → go to GoDaddy Website Builder → add a new blog post → paste the body. Use the title and meta description for SEO fields.</span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+              </div>
             </TabsContent>
 
           </Tabs>
