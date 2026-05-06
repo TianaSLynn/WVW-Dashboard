@@ -35,7 +35,7 @@ export async function GET(_req: NextRequest) {
     const raw = readFileSync(trackerPath, "utf-8");
     rows = parseCSV(raw);
   } catch {
-    return Response.json({ error: "Tracker file not found", rows: [] }, { status: 404 });
+    return Response.json({ rows: [], byPlatform: {}, byStatus: {}, byTheme: {}, total: 0 });
   }
 
   // Summaries
