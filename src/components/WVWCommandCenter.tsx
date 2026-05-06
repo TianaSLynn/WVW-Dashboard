@@ -254,6 +254,14 @@ export default function WVWCommandCenter() {
   const [triggering, setTriggering] = useState(false);
   const [triggerResult, setTriggerResult] = useState<string | null>(null);
 
+  // ── Substack state ──
+  const [ssTheme, setSsTheme] = useState("");
+  const [ssAngle, setSsAngle] = useState("");
+  const [ssLoading, setSsLoading] = useState(false);
+  const [ssResult, setSsResult] = useState<{ title: string; subtitle: string; content_markdown: string } | null>(null);
+  const [ssError, setSsError] = useState<string | null>(null);
+  const [ssCopied, setSsCopied] = useState(false);
+
   // ── Publish tab state ──
   const [nlSeries, setNlSeries] = useState("Ease, Power, Blackness");
   const [nlTheme, setNlTheme] = useState("");
@@ -324,6 +332,27 @@ export default function WVWCommandCenter() {
       setTriggerResult("Error — check your credentials in .env.local");
     } finally {
       setTriggering(false);
+    }
+  };
+
+  const generateSubstack = async () => {
+    if (!ssTheme.trim()) return;
+    setSsLoading(true);
+    setSsResult(null);
+    setSsError(null);
+    try {
+      const res = await fetch("/api/substack/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: ssTheme, angle: ssAngle || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Generation failed");
+      setSsResult(data as typeof ssResult);
+    } catch (err) {
+      setSsError((err as Error).message);
+    } finally {
+      setSsLoading(false);
     }
   };
 
@@ -1014,9 +1043,9 @@ export default function WVWCommandCenter() {
             <TabsContent value="autopost" className="space-y-4">
 
               {/* Connection status */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
                 {postingLoading ? (
-                  <div className="col-span-4 flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}>
+                  <div className="col-span-3 flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}>
                     <Loader2 className="w-4 h-4 animate-spin" style={{ color: C.forest }} />
                     Checking connections…
                   </div>
@@ -1025,10 +1054,12 @@ export default function WVWCommandCenter() {
                     { label: "LinkedIn Token",    key: "linkedin_token" },
                     { label: "LinkedIn Personal", key: "linkedin_person" },
                     { label: "LinkedIn WVW Page", key: "linkedin_org" },
-                    { label: "Buffer Token",      key: "buffer_token" },
-                    { label: "Buffer Instagram",  key: "buffer_instagram" },
-                    { label: "Buffer TikTok",     key: "buffer_tiktok" },
-                    { label: "Buffer Threads",    key: "buffer_threads" },
+                    { label: "X / Twitter",       key: "twitter" },
+                    { label: "Bluesky",           key: "bluesky" },
+                    { label: "Facebook WVW",      key: "facebook" },
+                    { label: "Instagram (Meta)",  key: "instagram" },
+                    { label: "Threads",           key: "threads" },
+                    { label: "TikTok (Buffer)",   key: "tiktok_buffer" },
                   ].map(({ label, key }) => {
                     const connected = postingStatus?.connections[key] ?? false;
                     return (
@@ -1418,6 +1449,110 @@ export default function WVWCommandCenter() {
                 </Card>
 
               </div>
+
+              {/* Substack Generator — full width */}
+              <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                <CardHeader>
+                  <CardTitle className="font-serif text-xl flex items-center gap-2">
+                    <Globe className="w-5 h-5" style={{ color: C.forest }} />
+                    Substack Essay Generator
+                  </CardTitle>
+                  <CardDescription style={{ color: C.charcoal }}>
+                    Generate a personal essay for Substack — copy title, subtitle, and body directly into the editor.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium" style={{ color: C.charcoal }}>Theme</p>
+                        <Input
+                          value={ssTheme}
+                          onChange={(e) => setSsTheme(e.target.value)}
+                          placeholder="e.g. carrying systems that were never yours"
+                          className="rounded-2xl text-sm"
+                          style={{ background: C.ivory, borderColor: "#DDD7CD" }}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium" style={{ color: C.charcoal }}>
+                          Angle <span style={{ color: C.gold }}>(optional)</span>
+                        </p>
+                        <Input
+                          value={ssAngle}
+                          onChange={(e) => setSsAngle(e.target.value)}
+                          placeholder="e.g. for Black women in leadership"
+                          className="rounded-2xl text-sm"
+                          style={{ background: C.ivory, borderColor: "#DDD7CD" }}
+                        />
+                      </div>
+                      <Button
+                        className="w-full rounded-2xl"
+                        style={{ background: C.forest, color: C.bone }}
+                        onClick={generateSubstack}
+                        disabled={ssLoading || !ssTheme.trim()}
+                      >
+                        {ssLoading
+                          ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</>
+                          : <><Globe className="w-4 h-4 mr-2" /> Generate Substack Essay</>
+                        }
+                      </Button>
+                      {ssError && <p className="text-xs text-center" style={{ color: C.rose }}>{ssError}</p>}
+                    </div>
+
+                    {ssResult ? (
+                      <div className="xl:col-span-2 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                            <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Title</p>
+                            <p className="text-sm font-medium font-serif">{ssResult.title}</p>
+                          </div>
+                          <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                            <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Subtitle</p>
+                            <p className="text-sm italic">{ssResult.subtitle}</p>
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-medium" style={{ color: C.charcoal }}>Essay Body</p>
+                            <button
+                              onClick={() => {
+                                const full = `# ${ssResult.title}\n\n*${ssResult.subtitle}*\n\n${ssResult.content_markdown}`;
+                                navigator.clipboard.writeText(full).catch(() => {});
+                                setSsCopied(true);
+                                setTimeout(() => setSsCopied(false), 2000);
+                              }}
+                              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl transition-colors"
+                              style={{
+                                background: ssCopied ? C.forest : "#DDD7CD",
+                                color: ssCopied ? C.bone : C.charcoal,
+                              }}
+                            >
+                              <Copy className="w-3 h-3" />
+                              {ssCopied ? "Copied!" : "Copy all"}
+                            </button>
+                          </div>
+                          <pre className="text-xs leading-relaxed whitespace-pre-wrap overflow-y-auto" style={{ color: C.charcoal, maxHeight: "16rem" }}>
+                            {ssResult.content_markdown}
+                          </pre>
+                        </div>
+                        <div className="p-3 rounded-2xl text-xs flex items-start gap-2" style={{ background: C.gold + "22", color: C.charcoal }}>
+                          <Globe className="w-4 h-4 shrink-0 mt-0.5" style={{ color: C.gold }} />
+                          <span>Go to substack.com → New Post → paste the title, subtitle, and body. The essay is formatted in markdown, which Substack renders automatically.</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="xl:col-span-2 flex items-center justify-center rounded-2xl p-8 text-sm"
+                        style={{ background: C.ivory, color: C.charcoal }}
+                      >
+                        Your generated essay will appear here.
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
             </TabsContent>
 
           </Tabs>

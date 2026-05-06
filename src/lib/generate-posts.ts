@@ -17,11 +17,17 @@ const PLATFORM_INSTRUCTIONS: Record<Platform, string> = {
   linkedin_wvw:
     "LinkedIn WVW — B2B authority voice, 120-160 words. Speaks directly to HR leaders and operations executives. Consulting lens. Precise. No warmth-and-fuzziness.",
   instagram:
-    "Instagram caption — 80-120 words. Warm but grounded. Ends with 'Save this.' or 'Share with your team.' No excessive hashtags.",
+    "Instagram caption — 80-120 words. Warm but grounded. Ends with 'Save this.' or 'Share with your team.' Max 3 relevant hashtags at the end.",
+  threads:
+    "Threads — 1-3 punchy sentences. Direct structural observation. No hashtags. No fluff. Under 300 characters.",
   tiktok:
     "TikTok script — written as spoken word. Hook statement (1 line) + 3 key points + close. Max 60 seconds when read aloud. No 'hey guys.' No performance.",
-  threads:
-    "Threads — 1-3 punchy sentences. Direct structural observation. No hashtags. No fluff.",
+  twitter:
+    "X/Twitter — sharp, declarative. Under 240 characters. One structural truth or named observation. No hashtag spam. Standalone — does not require context.",
+  bluesky:
+    "Bluesky — 1-2 sentences. Structural truth or grounded observation. Under 260 characters. No hashtags. Feels like a quiet, precise thought.",
+  facebook:
+    "Facebook (WVW page) — 100-150 words. Community-facing. Invites reflection without being preachy. May end with a soft question. Professional but approachable.",
 };
 
 export type GeneratedPosts = Partial<Record<Platform, string>>;
@@ -50,7 +56,7 @@ Return format:
 
   const msg = await client.messages.create({
     model: "claude-opus-4-6",
-    max_tokens: 2000,
+    max_tokens: 2500,
     system: SYSTEM,
     messages: [{ role: "user", content: prompt }],
   });

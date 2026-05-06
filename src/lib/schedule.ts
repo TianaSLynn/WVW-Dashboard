@@ -1,4 +1,12 @@
-export type Platform = "linkedin_personal" | "linkedin_wvw" | "instagram" | "tiktok" | "threads";
+export type Platform =
+  | "linkedin_personal"
+  | "linkedin_wvw"
+  | "instagram"
+  | "threads"
+  | "tiktok"
+  | "twitter"
+  | "bluesky"
+  | "facebook";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 type Day = (typeof DAYS)[number];
@@ -21,8 +29,11 @@ export const POSTING_SCHEDULE: Record<Platform, Day[]> = {
   linkedin_personal: parseDays(process.env.POST_LINKEDIN_PERSONAL_DAYS, ["Mon", "Tue", "Wed", "Thu", "Fri"]),
   linkedin_wvw:      parseDays(process.env.POST_LINKEDIN_WVW_DAYS,      ["Mon", "Wed", "Fri"]),
   instagram:         parseDays(process.env.POST_INSTAGRAM_DAYS,         ["Mon", "Wed", "Fri"]),
-  tiktok:            parseDays(process.env.POST_TIKTOK_DAYS,            ["Tue", "Thu"]),
   threads:           parseDays(process.env.POST_THREADS_DAYS,           ["Mon", "Wed", "Fri"]),
+  tiktok:            parseDays(process.env.POST_TIKTOK_DAYS,            ["Tue", "Thu"]),
+  twitter:           parseDays(process.env.POST_TWITTER_DAYS,           ["Mon", "Tue", "Wed", "Thu", "Fri"]),
+  bluesky:           parseDays(process.env.POST_BLUESKY_DAYS,           ["Mon", "Wed", "Fri"]),
+  facebook:          parseDays(process.env.POST_FACEBOOK_DAYS,          ["Mon", "Wed", "Fri"]),
 };
 
 export function getTodayPlatforms(): Platform[] {
