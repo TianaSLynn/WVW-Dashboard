@@ -67,6 +67,10 @@ export async function GET(req: NextRequest) {
     threads: process.env.BUFFER_PROFILE_THREADS,
   };
 
+  const baseUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "https://wvw-dashboard.vercel.app";
+
   for (const [platform, profileId] of Object.entries(bufferMap) as [Platform, string | undefined][]) {
     if (!platforms.includes(platform)) continue;
     const text = posts[platform];
@@ -79,8 +83,13 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
+    // Instagram gets a branded OG image card
+    const imageUrl = platform === "instagram"
+      ? `${baseUrl}/api/og?text=${encodeURIComponent(text.slice(0, 200))}&theme=${encodeURIComponent(theme)}`
+      : undefined;
+
     try {
-      await queueInBuffer([profileId], text);
+      await queueInBuffer([profileId], text, imageUrl);
       results[platform] = { status: "queued" };
       appendPostLog({ platform, theme, text, status: "queued" });
     } catch (err) {

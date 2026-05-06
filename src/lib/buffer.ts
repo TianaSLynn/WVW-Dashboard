@@ -1,4 +1,4 @@
-export async function queueInBuffer(profileIds: string[], text: string): Promise<void> {
+export async function queueInBuffer(profileIds: string[], text: string, imageUrl?: string): Promise<void> {
   const token = process.env.BUFFER_ACCESS_TOKEN;
   if (!token) throw new Error("BUFFER_ACCESS_TOKEN not configured");
   if (profileIds.length === 0) return;
@@ -6,6 +6,10 @@ export async function queueInBuffer(profileIds: string[], text: string): Promise
   const params = new URLSearchParams();
   profileIds.forEach((id) => params.append("profile_ids[]", id));
   params.set("text", text);
+  if (imageUrl) {
+    params.set("media[picture]", imageUrl);
+    params.set("media[thumbnail]", imageUrl);
+  }
 
   const res = await fetch("https://api.buffer.com/1/updates/create.json", {
     method: "POST",
