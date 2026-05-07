@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -12,6 +13,15 @@ Lived experience is specific — name the room, the pattern, the system.
 Neurodivergence and Black identity are centered as lived truth, not diversity positioning.
 Audience: HR leaders, operations executives, nonprofit directors, people experiencing burnout who found this via search.`;
 
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 80);
+}
+
 export async function POST(req: NextRequest) {
   const { theme, angle } = await req.json() as { theme: string; angle?: string };
   if (!theme) return Response.json({ error: "theme required" }, { status: 400 });
@@ -21,14 +31,14 @@ export async function POST(req: NextRequest) {
 Theme: "${theme}"${angle ? `\nAngle: ${angle}` : ""}
 
 Structure:
-- Title (declarative, specific — not clickbait, not generic. Something that would make an HR director stop scrolling)
-- Meta description (150 chars, SEO-friendly but not robotic)
-- Opening paragraph (hook — a specific truth, a named moment, a structural observation. 2–3 sentences)
-- Body (5–7 paragraphs — moves from named problem → structural analysis → what's actually happening → what shifts when you see it clearly)
-- Closing paragraph (grounded — does not end with "in conclusion." May offer a quiet call to reflection or action)
+- Title (declarative, specific — not clickbait, not generic)
+- Meta description (150 chars, SEO-friendly)
+- Opening paragraph (hook — specific truth, named moment, structural observation. 2–3 sentences)
+- Body (5–7 paragraphs — named problem → structural analysis → what's actually happening → what shifts when you see it clearly)
+- Closing paragraph (grounded — does not end with "in conclusion")
 - CTA (1 sentence: invite to consult, DM, or read more — soft, not desperate)
 
-Return as JSON:
+Return ONLY valid JSON starting with {:
 {
   "title": "...",
   "meta_description": "...",
@@ -46,5 +56,15 @@ Return as JSON:
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) return Response.json({ error: "Generation failed" }, { status: 500 });
 
-  return Response.json(JSON.parse(match[0]));
+  const post = JSON.parse(match[0]) as { title: string; meta_description: string; content_markdown: string };
+
+  // Auto-save to Supabase
+  const slug = `${slugify(post.title)}-${Date.now().toString(36)}`;
+  const { data: saved } = await supabase
+    .from("blog_posts")
+    .insert({ title: post.title, slug, meta_description: post.meta_description, content_markdown: post.content_markdown, theme, source: "dashboard" })
+    .select("slug")
+    .single();
+
+  return Response.json({ ...post, slug: saved?.slug ?? slug, blogUrl: `/blog/${saved?.slug ?? slug}` });
 }

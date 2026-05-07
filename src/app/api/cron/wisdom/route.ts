@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 import { generateWisdoms } from "@/lib/generate-posts";
-import { queueInBuffer } from "@/lib/buffer";
+import { postToLinkedIn } from "@/lib/linkedin";
+import { postToFacebook } from "@/lib/facebook";
+import { postToBlueskyPersonal } from "@/lib/bluesky";
 import { appendPostLog } from "@/lib/logger";
+
+export const maxDuration = 60;
 
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -9,36 +13,65 @@ function authorized(req: NextRequest): boolean {
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
+type Result = { status: string; error?: string };
+
+async function run(fn: () => Promise<unknown>): Promise<Result> {
+  try { await fn(); return { status: "posted" }; }
+  catch (err) { return { status: "error", error: String(err) }; }
+}
+
 export async function GET(req: NextRequest) {
   if (!authorized(req)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Generate a single fresh wisdom for today
   let wisdoms: string[];
   try {
-    wisdoms = await generateWisdoms(5);
+    wisdoms = await generateWisdoms(1);
   } catch (err) {
     return Response.json({ error: "Generation failed", detail: String(err) }, { status: 500 });
   }
 
-  const profileIds = [
-    process.env.BUFFER_PROFILE_INSTAGRAM,
-    process.env.BUFFER_PROFILE_THREADS,
-  ].filter(Boolean) as string[];
+  const wisdom = wisdoms[0];
+  if (!wisdom) return Response.json({ error: "No wisdom generated" }, { status: 500 });
 
-  const results: string[] = [];
+  const results: Record<string, Result> = {};
 
-  for (const wisdom of wisdoms) {
-    try {
-      if (profileIds.length > 0) {
-        await queueInBuffer(profileIds, wisdom);
-      }
-      appendPostLog({ platform: "buffer", theme: "Unicorn Wisdoms", text: wisdom, status: "queued" });
-      results.push("queued");
-    } catch {
-      results.push("error");
-    }
+  // ── LinkedIn Personal ──
+  const personUrn = process.env.LINKEDIN_PERSON_URN;
+  if (process.env.LINKEDIN_ACCESS_TOKEN && personUrn) {
+    results.linkedin_personal = await run(() => postToLinkedIn(wisdom, personUrn));
+  } else {
+    results.linkedin_personal = { status: "skipped", error: "LinkedIn not configured" };
   }
 
-  return Response.json({ wisdoms, results, timestamp: new Date().toISOString() });
+  // ── LinkedIn WVW Page ──
+  const orgUrn = process.env.LINKEDIN_ORG_URN;
+  if (process.env.LINKEDIN_ACCESS_TOKEN && orgUrn) {
+    results.linkedin_wvw = await run(() => postToLinkedIn(wisdom, orgUrn));
+  } else {
+    results.linkedin_wvw = { status: "skipped", error: "LinkedIn WVW not configured" };
+  }
+
+  // ── Facebook WVW Page ──
+  if (process.env.FACEBOOK_PAGE_ACCESS_TOKEN && process.env.FACEBOOK_PAGE_ID) {
+    results.facebook = await run(() => postToFacebook(wisdom));
+  } else {
+    results.facebook = { status: "skipped", error: "Facebook not configured" };
+  }
+
+  // ── Bluesky Personal ──
+  if (process.env.BLUESKY_PERSONAL_IDENTIFIER && process.env.BLUESKY_PERSONAL_APP_PASSWORD) {
+    results.bluesky_personal = await run(() => postToBlueskyPersonal(wisdom));
+  } else {
+    results.bluesky_personal = { status: "skipped", error: "Personal Bluesky not configured" };
+  }
+
+  // Log each result
+  Object.entries(results).forEach(([platform, r]) => {
+    appendPostLog({ platform, theme: "Unicorn Wisdom", text: wisdom, status: r.status as "posted" | "queued" | "error" | "skipped" });
+  });
+
+  return Response.json({ wisdom, results, timestamp: new Date().toISOString() });
 }
