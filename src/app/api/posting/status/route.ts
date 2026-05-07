@@ -15,11 +15,18 @@ export async function GET() {
     tiktok_buffer:     !!(process.env.BUFFER_ACCESS_TOKEN && process.env.BUFFER_PROFILE_TIKTOK),
   };
 
+  let recentPosts: Awaited<ReturnType<typeof readPostLog>> = [];
+  try {
+    recentPosts = (await readPostLog()).slice(0, 15);
+  } catch {
+    // Supabase unavailable — return empty log, don't crash connections check
+  }
+
   return Response.json({
     connections,
     todayPlatforms: getTodayPlatforms(),
     todayTheme: getTodayTheme(),
     schedule: POSTING_SCHEDULE,
-    recentPosts: (await readPostLog()).slice(0, 15),
+    recentPosts,
   });
 }

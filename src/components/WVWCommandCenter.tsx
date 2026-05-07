@@ -366,6 +366,7 @@ function MonthPlanDisplay({ raw, loading }: { raw: string; loading: boolean }) {
 
 // ─── Main component ───────────────────────────────────────────────
 export default function WVWCommandCenter() {
+  const [activeTab, setActiveTab] = useState("overview");
   const [search, setSearch] = useState("");
   const [selectedTheme, setSelectedTheme] = useState("Burnout / Moral Injury");
   const [contentData, setContentData] = useState<ContentData | null>(null);
@@ -375,6 +376,8 @@ export default function WVWCommandCenter() {
   const [postingLoading, setPostingLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [triggerResult, setTriggerResult] = useState<string | null>(null);
+  const [wisdomTriggering, setWisdomTriggering] = useState(false);
+  const [wisdomResult, setWisdomResult] = useState<string | null>(null);
   const [redditSignals, setRedditSignals] = useState<RedditSignal[]>([]);
   const [redditLoading, setRedditLoading] = useState(true);
   const [redditFetchedAt, setRedditFetchedAt] = useState<string | null>(null);
@@ -515,6 +518,24 @@ export default function WVWCommandCenter() {
       setTriggerResult("Error — check your credentials in .env.local");
     } finally {
       setTriggering(false);
+    }
+  };
+
+  const triggerWisdom = async () => {
+    setWisdomTriggering(true);
+    setWisdomResult(null);
+    try {
+      const res = await fetch("/api/posting/trigger-wisdom", { method: "POST" });
+      const data = await res.json() as { wisdom?: string; results?: Record<string, { status: string }> };
+      const summary = Object.entries(data.results ?? {})
+        .map(([p, r]) => `${p.replace(/_/g, " ")}: ${r.status}`)
+        .join(" · ");
+      setWisdomResult(data.wisdom ? `"${data.wisdom.slice(0, 60)}…" — ${summary || "sent"}` : "Done");
+      fetch("/api/posting/status").then((r) => r.json()).then((d: PostingStatus) => setPostingStatus(d)).catch(() => {});
+    } catch {
+      setWisdomResult("Error — check credentials");
+    } finally {
+      setWisdomTriggering(false);
     }
   };
 
@@ -748,10 +769,10 @@ export default function WVWCommandCenter() {
           {/* ── KPI row ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[
-              { label: "Total Audience",      value: totalFollowers.toLocaleString(), icon: Users,      note: "Connected social followers" },
-              { label: "Avg Engagement",      value: `${avgEngagement}%`,             icon: Gauge,      note: "Across all platforms" },
-              { label: "Top Platform",        value: topPlatform.platform,            icon: TrendingUp,  note: `${topPlatform.engagement}% engagement` },
-              { label: "Favorite Newsletter", value: topNewsletter.name,              icon: FileText,    note: `Score ${topNewsletter.favoriteScore}` },
+              { label: "Total Audience",      value: totalFollowers.toLocaleString(), icon: Users,      note: "Estimated — update in socialSummary" },
+              { label: "Avg Engagement",      value: `${avgEngagement}%`,             icon: Gauge,      note: "Estimated — update in socialSummary" },
+              { label: "Top Platform",        value: topPlatform.platform,            icon: TrendingUp,  note: `${topPlatform.engagement}% est. engagement` },
+              { label: "Favorite Newsletter", value: topNewsletter.name,              icon: FileText,    note: `Score ${topNewsletter.favoriteScore} · estimated` },
             ].map((item) => (
               <Card key={item.label} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                 <CardContent className="p-5">
@@ -771,7 +792,7 @@ export default function WVWCommandCenter() {
           </div>
 
           {/* ── Tabs ── */}
-          <Tabs defaultValue="overview" className="space-y-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList
               className="flex flex-wrap gap-1 h-auto rounded-2xl p-1.5"
               style={{ background: C.bone, border: `1px solid #DDD7CD` }}
@@ -1229,9 +1250,12 @@ export default function WVWCommandCenter() {
                             </div>
                             <Button
                               variant="ghost"
-                              className="w-full rounded-xl justify-between text-xs h-8 opacity-50 cursor-not-allowed"
+                              className="w-full rounded-xl justify-between text-xs h-8"
                               style={{ color: C.forest }}
-                              title="Coming soon"
+                              onClick={() => {
+                                setBlogTheme(item.topic);
+                                setActiveTab("publish");
+                              }}
                             >
                               Open Build Flow <ChevronRight className="w-3.5 h-3.5" />
                             </Button>
@@ -1426,7 +1450,7 @@ export default function WVWCommandCenter() {
                       className="w-full rounded-2xl mt-2"
                       style={{ background: C.forest, color: C.bone }}
                       onClick={triggerPosting}
-                      disabled={triggering}
+                      disabled={triggering || wisdomTriggering}
                     >
                       {triggering
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Posting…</>
@@ -1440,16 +1464,35 @@ export default function WVWCommandCenter() {
                       </p>
                     )}
 
+                    <Button
+                      className="w-full rounded-2xl"
+                      variant="outline"
+                      style={{ borderColor: C.gold, color: C.charcoal }}
+                      onClick={triggerWisdom}
+                      disabled={wisdomTriggering || triggering}
+                    >
+                      {wisdomTriggering
+                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending Wisdom…</>
+                        : <><Sparkles className="w-4 h-4 mr-2" /> Send Unicorn Wisdom Now</>
+                      }
+                    </Button>
+
+                    {wisdomResult && (
+                      <p className="text-xs text-center pt-1" style={{ color: C.charcoal }}>
+                        {wisdomResult}
+                      </p>
+                    )}
+
                     <div
                       className="p-3 rounded-2xl text-xs space-y-1"
                       style={{ background: C.ivory, color: C.charcoal }}
                     >
-                      <p><strong style={{ color: C.warmBlack }}>Daily cron:</strong> 8am ET (12:00 UTC)</p>
-                      <p><strong style={{ color: C.warmBlack }}>Wisdom cron:</strong> Mondays 9am UTC</p>
-                      <p><strong style={{ color: C.warmBlack }}>Newsletter cron:</strong> Mon / Wed / Fri 1pm UTC</p>
+                      <p><strong style={{ color: C.warmBlack }}>Daily cron:</strong> Daily 12pm ET (17:00 UTC)</p>
+                      <p><strong style={{ color: C.warmBlack }}>Wisdom cron:</strong> Daily 9am ET (14:00 UTC) · all socials</p>
+                      <p><strong style={{ color: C.warmBlack }}>Newsletter cron:</strong> Mon / Wed / Fri 1pm ET (18:00 UTC)</p>
                       <p><strong style={{ color: C.warmBlack }}>Instagram:</strong> carousel posts via Meta API</p>
                       <p><strong style={{ color: C.warmBlack }}>Threads / Twitter / Facebook:</strong> posts directly</p>
-                      <p><strong style={{ color: C.warmBlack }}>TikTok:</strong> queued in Buffer</p>
+                      <p><strong style={{ color: C.warmBlack }}>TikTok:</strong> queued in Buffer (not yet configured)</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1894,6 +1937,18 @@ export default function WVWCommandCenter() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
+                          const today = new Date();
+                          setCalYear(today.getFullYear());
+                          setCalMonth(today.getMonth() + 1);
+                          setCalSelected(null);
+                        }}
+                        className="text-xs px-2.5 py-1 rounded-xl transition-colors"
+                        style={{ background: C.ivory, color: C.charcoal, border: `1px solid #DDD7CD` }}
+                      >
+                        Today
+                      </button>
+                      <button
+                        onClick={() => {
                           const d = new Date(calYear, calMonth - 2, 1);
                           setCalYear(d.getFullYear());
                           setCalMonth(d.getMonth() + 1);
@@ -2058,41 +2113,65 @@ export default function WVWCommandCenter() {
 
             {/* ── Performance ── */}
             <TabsContent value="performance" className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — replace with your real post analytics</span>
+              </div>
               <ContentPerformanceTable posts={samplePosts} />
             </TabsContent>
 
             {/* ── Intelligence ── */}
             <TabsContent value="intelligence" className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — replace with your real post analytics</span>
+              </div>
               <AIInsightsPanel posts={samplePosts} />
             </TabsContent>
 
             {/* ── Audience ── */}
             <TabsContent value="audience" className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — these are example audience segments, not your real followers</span>
+              </div>
               <AudienceInsights insights={sampleAudience} />
             </TabsContent>
 
             {/* ── Community ── */}
             <TabsContent value="community" className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — log real DMs and comments here to track actual leads</span>
+              </div>
               <CommunityLeads interactions={sampleInteractions} />
             </TabsContent>
 
             {/* ── Conversions ── */}
             <TabsContent value="conversions" className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — log real discovery calls and client conversions here</span>
+              </div>
               <ConversionEngine conversions={sampleConversions} />
             </TabsContent>
 
             {/* ── Experiments ── */}
             <TabsContent value="experiments" className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — log real content experiments and outcomes here</span>
+              </div>
               <ExperimentBoard experiments={sampleExperiments} />
             </TabsContent>
 
             {/* ── Repurpose ── */}
             <TabsContent value="repurpose" className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — based on example posts, not your live analytics</span>
+              </div>
               <RepurposingEngine posts={samplePosts} />
             </TabsContent>
 
             {/* ── Reports ── */}
             <TabsContent value="reports" className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — reports will reflect real numbers once analytics are connected</span>
+              </div>
               <ReportsSection posts={samplePosts} conversions={sampleConversions} interactions={sampleInteractions} />
             </TabsContent>
 

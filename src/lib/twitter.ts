@@ -41,11 +41,17 @@ export async function postToTwitter(text: string): Promise<void> {
       .map(([k, v]) => `${pct(k)}="${pct(v)}"`)
       .join(", ");
 
+  // Twitter hard limit is 280 characters
+  const tweetText = text.length > 280 ? text.slice(0, 277) + "…" : text;
+
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: authHeader, "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text: tweetText }),
   });
 
-  if (!res.ok) throw new Error(`Twitter ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Twitter ${res.status}: ${body}`);
+  }
 }

@@ -1,7 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
-const url = process.env.SUPABASE_URL!;
-const key = process.env.SUPABASE_ANON_KEY!;
+// Falls back to a placeholder so the module loads even if env vars are missing.
+// Actual DB calls will fail gracefully (returning null data) rather than crashing the route.
+const url = process.env.SUPABASE_URL ?? "https://placeholder.supabase.co";
+const key = process.env.SUPABASE_ANON_KEY ?? "placeholder";
 
 export const supabase = createClient(url, key);
 
