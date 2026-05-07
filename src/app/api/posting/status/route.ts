@@ -20,6 +20,6 @@ export async function GET() {
     todayPlatforms: getTodayPlatforms(),
     todayTheme: getTodayTheme(),
     schedule: POSTING_SCHEDULE,
-    recentPosts: readPostLog().slice(0, 15),
+    recentPosts: (await readPostLog()).slice(0, 15),
   });
 }

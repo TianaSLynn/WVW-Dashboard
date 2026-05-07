@@ -10,6 +10,7 @@ import {
   Brain,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Copy,
   FileText,
@@ -372,6 +373,18 @@ export default function WVWCommandCenter() {
   const [monthPlanLoading, setMonthPlanLoading] = useState(false);
   const [monthPlanOpen, setMonthPlanOpen] = useState(false);
 
+  // ── Calendar state ──
+  const now = new Date();
+  const [calYear,  setCalYear]  = useState(now.getFullYear());
+  const [calMonth, setCalMonth] = useState(now.getMonth() + 1);
+  const [calEntries, setCalEntries] = useState<{ id: string; date: string; platform: string; theme: string; status: string; excerpt: string }[]>([]);
+  const [calLoading, setCalLoading] = useState(false);
+  const [calSelected, setCalSelected] = useState<string | null>(null);
+
+  // ── Theme of Month state ──
+  const [themeOfMonth, setThemeOfMonthState] = useState<string | null>(null);
+  const [settingTheme, setSettingTheme] = useState(false);
+
   // ── Substack state ──
   const [ssTheme, setSsTheme] = useState("");
   const [ssAngle, setSsAngle] = useState("");
@@ -441,6 +454,38 @@ export default function WVWCommandCenter() {
       .catch(() => {})
       .finally(() => setRedditLoading(false));
   }, []);
+
+  // ── Fetch calendar data when month changes ──
+  useEffect(() => {
+    setCalLoading(true);
+    fetch(`/api/calendar?year=${calYear}&month=${calMonth}`)
+      .then((r) => r.json())
+      .then((d: { entries: typeof calEntries }) => setCalEntries(d.entries ?? []))
+      .catch(() => {})
+      .finally(() => setCalLoading(false));
+  }, [calYear, calMonth]);
+
+  // ── Fetch theme of month ──
+  useEffect(() => {
+    fetch("/api/settings/theme-of-month")
+      .then((r) => r.json())
+      .then((d: { theme: string | null }) => setThemeOfMonthState(d.theme))
+      .catch(() => {});
+  }, []);
+
+  const setThemeOfMonth = async (theme: string) => {
+    setSettingTheme(true);
+    try {
+      await fetch("/api/settings/theme-of-month", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme }),
+      });
+      setThemeOfMonthState(theme);
+    } finally {
+      setSettingTheme(false);
+    }
+  };
 
   const triggerPosting = async () => {
     setTriggering(true);
@@ -719,7 +764,7 @@ export default function WVWCommandCenter() {
           {/* ── Tabs ── */}
           <Tabs defaultValue="overview" className="space-y-4">
             <TabsList
-              className="grid grid-cols-4 md:grid-cols-8 rounded-2xl p-1"
+              className="grid grid-cols-5 md:grid-cols-9 rounded-2xl p-1"
               style={{ background: C.bone, border: `1px solid #DDD7CD` }}
             >
               {[
@@ -731,6 +776,7 @@ export default function WVWCommandCenter() {
                 { value: "wisdom",      label: "Wisdoms" },
                 { value: "autopost",    label: "Auto-Post" },
                 { value: "publish",     label: "Publish" },
+                { value: "calendar",    label: "Calendar" },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -911,6 +957,13 @@ export default function WVWCommandCenter() {
                     <CardDescription style={{ color: C.charcoal }}>Live Reddit signals from r/humanresources, r/blackmentalhealth, r/ADHD, r/neurodivergent, r/burnout, r/nonprofit — updated hourly.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
+                    {themeOfMonth && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-2xl mb-1" style={{ background: C.forest + "18", border: `1px solid ${C.forest}33` }}>
+                        <CalendarDays className="w-3.5 h-3.5 shrink-0" style={{ color: C.forest }} />
+                        <span className="text-xs font-medium" style={{ color: C.forest }}>Theme of Month:</span>
+                        <span className="text-xs" style={{ color: C.charcoal }}>{themeOfMonth}</span>
+                      </div>
+                    )}
                     {redditLoading ? (
                       <div className="flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}>
                         <Loader2 className="w-4 h-4 animate-spin" style={{ color: C.forest }} />
@@ -935,12 +988,26 @@ export default function WVWCommandCenter() {
                               <MomentumBadge level={signal.momentum} />
                             </div>
                           </div>
-                          <span
-                            className="text-xs px-3 py-1.5 rounded-full border shrink-0"
-                            style={{ borderColor: C.gold, color: C.charcoal }}
-                          >
-                            {signal.action}
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className="text-xs px-3 py-1.5 rounded-full border"
+                              style={{ borderColor: C.gold, color: C.charcoal }}
+                            >
+                              {signal.action}
+                            </span>
+                            <button
+                              onClick={() => setThemeOfMonth(signal.theme)}
+                              disabled={settingTheme || themeOfMonth === signal.theme}
+                              className="text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-40"
+                              style={themeOfMonth === signal.theme
+                                ? { background: C.forest, color: C.bone, borderColor: C.forest }
+                                : { borderColor: C.forest, color: C.forest }
+                              }
+                              title="Set as Theme of Month"
+                            >
+                              {themeOfMonth === signal.theme ? "✓ Theme of Month" : "Set as Month Theme"}
+                            </button>
+                          </div>
                         </div>
                       ))
                     )}
@@ -1796,6 +1863,180 @@ export default function WVWCommandCenter() {
                 </CardContent>
               </Card>
 
+            </TabsContent>
+
+            {/* ── Calendar ── */}
+            <TabsContent value="calendar" className="space-y-4">
+              <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="font-serif text-xl">Post Calendar</CardTitle>
+                      <CardDescription style={{ color: C.charcoal }}>Every post logged across all platforms, by date.</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const d = new Date(calYear, calMonth - 2, 1);
+                          setCalYear(d.getFullYear());
+                          setCalMonth(d.getMonth() + 1);
+                          setCalSelected(null);
+                        }}
+                        className="p-2 rounded-xl hover:opacity-70 transition-opacity"
+                        style={{ background: C.ivory }}
+                      >
+                        <ChevronLeft className="w-4 h-4" style={{ color: C.charcoal }} />
+                      </button>
+                      <span className="text-sm font-medium px-2" style={{ color: C.warmBlack }}>
+                        {new Date(calYear, calMonth - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                      </span>
+                      <button
+                        onClick={() => {
+                          const d = new Date(calYear, calMonth, 1);
+                          setCalYear(d.getFullYear());
+                          setCalMonth(d.getMonth() + 1);
+                          setCalSelected(null);
+                        }}
+                        className="p-2 rounded-xl hover:opacity-70 transition-opacity"
+                        style={{ background: C.ivory }}
+                      >
+                        <ChevronRight className="w-4 h-4" style={{ color: C.charcoal }} />
+                      </button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {calLoading ? (
+                    <div className="flex items-center gap-2 py-12 justify-center" style={{ color: C.charcoal }}>
+                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: C.forest }} />
+                      Loading calendar…
+                    </div>
+                  ) : (() => {
+                    const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+                    const firstDow = new Date(calYear, calMonth - 1, 1).getDay();
+                    const byDate: Record<string, typeof calEntries> = {};
+                    calEntries.forEach((e) => {
+                      if (!byDate[e.date]) byDate[e.date] = [];
+                      byDate[e.date].push(e);
+                    });
+                    const PLATFORM_COLORS: Record<string, string> = {
+                      linkedin_personal: "#0A66C2",
+                      linkedin_wvw: "#0A66C2",
+                      facebook: "#1877F2",
+                      instagram: "#E1306C",
+                      threads: "#6E5DE0",
+                      bluesky: "#0085FF",
+                      bluesky_personal: "#0085FF",
+                      twitter: "#1DA1F2",
+                      tiktok: "#FF0050",
+                    };
+                    const cells: (number | null)[] = [
+                      ...Array(firstDow).fill(null),
+                      ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+                    ];
+                    const selectedEntries = calSelected ? (byDate[calSelected] ?? []) : [];
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-7 gap-1">
+                          {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (
+                            <div key={d} className="text-center text-xs font-medium pb-2" style={{ color: C.charcoal }}>{d}</div>
+                          ))}
+                          {cells.map((day, idx) => {
+                            if (!day) return <div key={`empty-${idx}`} />;
+                            const dateStr = `${calYear}-${String(calMonth).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                            const entries = byDate[dateStr] ?? [];
+                            const isSelected = calSelected === dateStr;
+                            const isToday = dateStr === new Date().toISOString().slice(0,10);
+                            return (
+                              <button
+                                key={day}
+                                onClick={() => setCalSelected(isSelected ? null : dateStr)}
+                                className="rounded-2xl p-2 flex flex-col items-center gap-1 min-h-[52px] transition-colors"
+                                style={{
+                                  background: isSelected ? C.forest : isToday ? C.gold + "33" : C.ivory,
+                                  border: `1px solid ${isSelected ? C.forest : isToday ? C.gold : "#DDD7CD"}`,
+                                }}
+                              >
+                                <span className="text-xs font-medium" style={{ color: isSelected ? C.bone : C.warmBlack }}>
+                                  {day}
+                                </span>
+                                {entries.length > 0 && (
+                                  <div className="flex flex-wrap gap-0.5 justify-center">
+                                    {entries.slice(0, 4).map((e, i) => (
+                                      <div
+                                        key={i}
+                                        className="w-1.5 h-1.5 rounded-full"
+                                        style={{ background: PLATFORM_COLORS[e.platform] ?? C.charcoal }}
+                                        title={e.platform}
+                                      />
+                                    ))}
+                                    {entries.length > 4 && (
+                                      <span className="text-[8px]" style={{ color: isSelected ? C.bone : C.charcoal }}>+{entries.length - 4}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {calSelected && (
+                          <div className="rounded-2xl p-4 space-y-3" style={{ background: C.ivory, border: `1px solid #DDD7CD` }}>
+                            <p className="text-sm font-medium" style={{ color: C.warmBlack }}>
+                              {new Date(calSelected + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                            </p>
+                            {selectedEntries.length === 0 ? (
+                              <p className="text-sm" style={{ color: C.charcoal }}>No posts logged for this day.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {selectedEntries.map((e) => (
+                                  <div key={e.id} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: C.bone }}>
+                                    <div
+                                      className="w-2 h-2 rounded-full mt-1.5 shrink-0"
+                                      style={{ background: PLATFORM_COLORS[e.platform] ?? C.charcoal }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                                        <span className="text-xs font-medium" style={{ color: C.charcoal }}>{e.platform}</span>
+                                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: C.gold + "33", color: C.charcoal }}>{e.theme}</span>
+                                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: e.status === "posted" ? C.forest + "22" : C.rose + "33", color: e.status === "posted" ? C.forest : C.charcoal }}>{e.status}</span>
+                                      </div>
+                                      {e.excerpt && <p className="text-xs" style={{ color: C.charcoal }}>{e.excerpt}</p>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {calEntries.length === 0 && !calSelected && (
+                          <p className="text-sm text-center py-4" style={{ color: C.charcoal }}>
+                            No posts logged this month yet. Posts appear here automatically after each cron run.
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-3 pt-2">
+                          {Object.entries({
+                            "LinkedIn": "#0A66C2",
+                            "Facebook": "#1877F2",
+                            "Instagram": "#E1306C",
+                            "Threads": "#6E5DE0",
+                            "Bluesky": "#0085FF",
+                            "Twitter": "#1DA1F2",
+                          }).map(([label, color]) => (
+                            <div key={label} className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                              <span className="text-xs" style={{ color: C.charcoal }}>{label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
             </TabsContent>
 
           </Tabs>

@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
   }
 
   Object.entries(results).forEach(([platform, r]) => {
-    appendPostLog({ platform, theme: "Unicorn Wisdom", text: wisdom, status: r.status as "posted" | "queued" | "error" | "skipped" });
+    void appendPostLog({ platform, theme: "Unicorn Wisdom", text: wisdom, status: r.status as "posted" | "queued" | "error" | "skipped" });
   });
 
   return Response.json({ wisdom, results, timestamp: new Date().toISOString() });

@@ -1,9 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
-
-const LOG_PATH = process.env.VERCEL
-  ? "/tmp/wvw-post-log.json"
-  : (process.env.WVW_LOG_PATH ??
-      "/Users/tearz/Documents/Claude/Projects/wvw-full-os/logs/post-log.json");
+import { supabase } from "./supabase";
 
 export interface PostLogEntry {
   id: string;
@@ -14,33 +9,35 @@ export interface PostLogEntry {
   status: "posted" | "queued" | "error" | "skipped";
 }
 
-export function appendPostLog(entry: {
+export async function appendPostLog(entry: {
   platform: string;
   theme: string;
   text: string;
   status: PostLogEntry["status"];
-}): void {
-  let log: PostLogEntry[] = readPostLog();
-  log.unshift({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    timestamp: new Date().toISOString(),
+}): Promise<void> {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  await supabase.from("post_log").insert({
+    id,
     platform: entry.platform,
     theme: entry.theme,
     excerpt: entry.text.slice(0, 120),
     status: entry.status,
   });
-  try {
-    writeFileSync(LOG_PATH, JSON.stringify(log.slice(0, 100), null, 2), "utf-8");
-  } catch {
-    // read-only filesystem in some Vercel environments — skip silently
-  }
 }
 
-export function readPostLog(): PostLogEntry[] {
-  if (!existsSync(LOG_PATH)) return [];
-  try {
-    return JSON.parse(readFileSync(LOG_PATH, "utf-8")) as PostLogEntry[];
-  } catch {
-    return [];
-  }
+export async function readPostLog(): Promise<PostLogEntry[]> {
+  const { data } = await supabase
+    .from("post_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    timestamp: row.created_at as string,
+    platform: row.platform as string,
+    theme: row.theme as string,
+    excerpt: (row.excerpt ?? "") as string,
+    status: row.status as PostLogEntry["status"],
+  }));
 }

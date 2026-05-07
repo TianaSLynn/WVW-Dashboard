@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 
   const log = (platform: string, text: string, r: Result) => {
     results[platform] = r;
-    appendPostLog({ platform, theme, text, status: r.status as "posted" | "queued" | "error" | "skipped" });
+    void appendPostLog({ platform, theme, text, status: r.status as "posted" | "queued" | "error" | "skipped" });
   };
 
   // ── LinkedIn Personal ──
