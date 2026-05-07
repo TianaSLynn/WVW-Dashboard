@@ -25,6 +25,7 @@ import {
   Megaphone,
   MessageSquareQuote,
   Play,
+  Plus,
   RefreshCcw,
   Sparkles,
   Target,
@@ -43,7 +44,8 @@ import ConversionEngine       from "@/components/dashboard/ConversionEngine";
 import ExperimentBoard        from "@/components/dashboard/ExperimentBoard";
 import RepurposingEngine      from "@/components/dashboard/RepurposingEngine";
 import ReportsSection         from "@/components/dashboard/ReportsSection";
-import { samplePosts, sampleAudience, sampleInteractions, sampleConversions, sampleExperiments } from "@/data/sampleData";
+import { samplePosts, sampleAudience, sampleConversions, sampleExperiments } from "@/data/sampleData";
+import type { CommunityInteraction } from "@/types/dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -378,6 +380,8 @@ export default function WVWCommandCenter() {
   const [triggerResult, setTriggerResult] = useState<string | null>(null);
   const [wisdomTriggering, setWisdomTriggering] = useState(false);
   const [wisdomResult, setWisdomResult] = useState<string | null>(null);
+  const [beTriggering, setBeTriggering] = useState(false);
+  const [beResult, setBeResult] = useState<string | null>(null);
   const [statusDebug, setStatusDebug] = useState<string | null>(null);
   const [redditSignals, setRedditSignals] = useState<RedditSignal[]>([]);
   const [redditLoading, setRedditLoading] = useState(true);
@@ -426,6 +430,53 @@ export default function WVWCommandCenter() {
   } | null>(null);
   const [blogError, setBlogError] = useState<string | null>(null);
   const [blogCopied, setBlogCopied] = useState(false);
+
+  // ── Content queue ──
+  type QueueItem = { id: string; platform: string; theme: string; text: string; status: string; created_at: string };
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [editingQueue, setEditingQueue] = useState<Record<string, string>>({});
+  const [queuePosting, setQueuePosting] = useState<Record<string, boolean>>({});
+  const [generatingToQueue, setGeneratingToQueue] = useState(false);
+
+  // ── Strategy alerts ──
+  type AlertItem = { type: string; severity: "info" | "warning" | "success"; title: string; body: string };
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+
+  // ── Lead attribution ──
+  type AttrTheme = { theme: string; posts: number; leads: number; conversions: number; score: number };
+  type AttrPlatform = { platform: string; posts: number; leads: number };
+  const [attribution, setAttribution] = useState<{ topThemes: AttrTheme[]; topPlatforms: AttrPlatform[]; totalPosts: number; totalLeads: number } | null>(null);
+
+  // ── Real conversions from Supabase ──
+  type RealConversion = { id: string; date: string; source_platform: string; conversion_type: string; description: string; value_usd: number; status: string; notes: string };
+  const [realConversions, setRealConversions] = useState<RealConversion[]>([]);
+  const [showConversionForm, setShowConversionForm] = useState(false);
+  const [conversionForm, setConversionForm] = useState({ source_platform: "LinkedIn Personal", conversion_type: "Consultation Inquiry", description: "", value_usd: 0, status: "New", notes: "" });
+  const [conversionSaving, setConversionSaving] = useState(false);
+
+  // ── Real leads from Supabase ──
+  const [realLeads, setRealLeads] = useState<CommunityInteraction[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [showLeadForm, setShowLeadForm] = useState(false);
+  const [leadForm, setLeadForm] = useState({
+    platform: "LinkedIn Personal",
+    interaction_type: "Inquiry",
+    user_name: "",
+    message_summary: "",
+    lead_flag: false,
+    follow_up_needed: false,
+    follow_up_status: "New",
+    notes: "",
+  });
+  const [leadSaving, setLeadSaving] = useState(false);
+
+  // ── Real social stats from Supabase ──
+  type StatRow = { platform: string; followers: number; engagement: number; ctr: number; posts: number; lead_score: number; updated_at: string | null };
+  const [realStats, setRealStats] = useState<StatRow[] | null>(null);
+  const [statsEditing, setStatsEditing] = useState(false);
+  const [statsDraft, setStatsDraft] = useState<StatRow[]>([]);
+  const [statsSaving, setStatsSaving] = useState(false);
 
   const themeStream  = useStream();
   const wisdomStream = useStream();
@@ -489,6 +540,75 @@ export default function WVWCommandCenter() {
       .catch(() => {});
   }, []);
 
+  // ── Fetch real leads ──
+  const fetchLeads = () => {
+    setLeadsLoading(true);
+    fetch("/api/leads", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((rows: Array<{ id: string; date: string; platform: string; interaction_type: string; user_name: string; message_summary: string; lead_flag: boolean; follow_up_needed: boolean; follow_up_status: string; related_content: string; notes: string }>) => {
+        setRealLeads(rows.map((r) => ({
+          id: r.id,
+          date: r.date,
+          platform: r.platform as CommunityInteraction["platform"],
+          interactionType: r.interaction_type as CommunityInteraction["interactionType"],
+          userName: r.user_name,
+          messageSummary: r.message_summary,
+          leadFlag: r.lead_flag,
+          followUpNeeded: r.follow_up_needed,
+          followUpStatus: r.follow_up_status as CommunityInteraction["followUpStatus"],
+          relatedContent: r.related_content,
+          notes: r.notes,
+        })));
+      })
+      .catch(() => {})
+      .finally(() => setLeadsLoading(false));
+  };
+  useEffect(fetchLeads, []);
+
+  // ── Fetch social stats ──
+  useEffect(() => {
+    fetch("/api/social-stats", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((rows: StatRow[]) => setRealStats(rows))
+      .catch(() => {});
+  }, []);
+
+  // ── Fetch content queue ──
+  const fetchQueue = () => {
+    setQueueLoading(true);
+    fetch("/api/queue", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((rows: QueueItem[]) => setQueue(rows))
+      .catch(() => {})
+      .finally(() => setQueueLoading(false));
+  };
+  useEffect(fetchQueue, []);
+
+  // ── Fetch strategy alerts ──
+  useEffect(() => {
+    fetch("/api/analytics/alerts", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { alerts: AlertItem[] }) => setAlerts(d.alerts ?? []))
+      .catch(() => {});
+  }, []);
+
+  // ── Fetch attribution ──
+  useEffect(() => {
+    fetch("/api/analytics/attribution", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: typeof attribution) => setAttribution(d))
+      .catch(() => {});
+  }, []);
+
+  // ── Fetch real conversions ──
+  const fetchConversions = () => {
+    fetch("/api/conversions", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((rows: RealConversion[]) => setRealConversions(rows))
+      .catch(() => {});
+  };
+  useEffect(fetchConversions, []);
+
   const setThemeOfMonth = async (theme: string) => {
     setSettingTheme(true);
     try {
@@ -540,6 +660,104 @@ export default function WVWCommandCenter() {
       setWisdomResult("Error — check credentials");
     } finally {
       setWisdomTriggering(false);
+    }
+  };
+
+  const triggerBlackExcellence = async () => {
+    setBeTriggering(true);
+    setBeResult(null);
+    try {
+      const res = await fetch("/api/posting/trigger-black-excellence", { method: "POST" });
+      const data = await res.json() as { category?: string; subject?: string; results?: Record<string, { status: string }> };
+      const summary = Object.entries(data.results ?? {})
+        .map(([p, r]) => `${p.replace(/_/g, " ")}: ${r.status}`)
+        .join(" · ");
+      setBeResult(data.subject ? `${data.category} · ${data.subject} — ${summary || "sent"}` : "Done");
+      fetch("/api/posting/status").then((r) => r.json()).then((d: PostingStatus) => setPostingStatus(d)).catch(() => {});
+    } catch {
+      setBeResult("Error — check credentials");
+    } finally {
+      setBeTriggering(false);
+    }
+  };
+
+  const submitLead = async () => {
+    if (!leadForm.user_name.trim() || !leadForm.message_summary.trim()) return;
+    setLeadSaving(true);
+    try {
+      await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(leadForm),
+      });
+      setLeadForm({ platform: "LinkedIn Personal", interaction_type: "Inquiry", user_name: "", message_summary: "", lead_flag: false, follow_up_needed: false, follow_up_status: "New", notes: "" });
+      setShowLeadForm(false);
+      fetchLeads();
+    } finally {
+      setLeadSaving(false);
+    }
+  };
+
+  const generateToQueue = async () => {
+    setGeneratingToQueue(true);
+    try {
+      const res = await fetch("/api/posting/generate-to-queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      await res.json();
+      fetchQueue();
+      setActiveTab("autopost");
+    } finally {
+      setGeneratingToQueue(false);
+    }
+  };
+
+  const approveQueueItem = async (item: QueueItem) => {
+    setQueuePosting((p) => ({ ...p, [item.id]: true }));
+    try {
+      const text = editingQueue[item.id] ?? item.text;
+      await fetch(`/api/queue/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "approve", text }) });
+      fetchQueue();
+      // Refresh post log
+      fetch("/api/posting/status").then((r) => r.json()).then((d: PostingStatus) => setPostingStatus(d)).catch(() => {});
+    } finally {
+      setQueuePosting((p) => ({ ...p, [item.id]: false }));
+    }
+  };
+
+  const rejectQueueItem = async (id: string) => {
+    await fetch(`/api/queue/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reject" }) });
+    fetchQueue();
+  };
+
+  const deleteQueueItem = async (id: string) => {
+    await fetch("/api/queue", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    fetchQueue();
+  };
+
+  const submitConversion = async () => {
+    if (!conversionForm.description.trim()) return;
+    setConversionSaving(true);
+    try {
+      await fetch("/api/conversions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(conversionForm) });
+      setConversionForm({ source_platform: "LinkedIn Personal", conversion_type: "Consultation Inquiry", description: "", value_usd: 0, status: "New", notes: "" });
+      setShowConversionForm(false);
+      fetchConversions();
+    } finally {
+      setConversionSaving(false);
+    }
+  };
+
+  const saveStats = async () => {
+    setStatsSaving(true);
+    try {
+      await fetch("/api/social-stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(statsDraft),
+      });
+      setRealStats(statsDraft.map((r) => ({ ...r, updated_at: new Date().toISOString() })));
+      setStatsEditing(false);
+    } finally {
+      setStatsSaving(false);
     }
   };
 
@@ -658,15 +876,20 @@ export default function WVWCommandCenter() {
     return filtered.length > 0 ? filtered : [];
   }, [contentData, search]);
 
-  const totalFollowers = socialSummary.reduce((s, r) => s + r.followers, 0);
-  const avgEngagement = (socialSummary.reduce((s, r) => s + r.engagement, 0) / socialSummary.length).toFixed(1);
-  const topPlatform = [...socialSummary].sort((a, b) => b.engagement - a.engagement)[0];
+  const activeSummary = realStats
+    ? realStats.map((r) => ({ platform: r.platform, followers: r.followers, engagement: r.engagement, ctr: r.ctr, posts: r.posts, leadScore: r.lead_score }))
+    : socialSummary;
+  const statsHaveData = realStats ? realStats.some((r) => r.followers > 0) : false;
+  const statsLastUpdated = realStats ? (realStats.find((r) => r.updated_at)?.updated_at ?? null) : null;
+  const totalFollowers = activeSummary.reduce((s, r) => s + r.followers, 0);
+  const avgEngagement = (activeSummary.reduce((s, r) => s + r.engagement, 0) / activeSummary.length).toFixed(1);
+  const topPlatform = [...activeSummary].sort((a, b) => b.engagement - a.engagement)[0];
   const topNewsletter = [...newsletters].sort((a, b) => b.favoriteScore - a.favoriteScore)[0];
 
   // Derive content-count bar data from real CSV
   const platformBarData = contentData
     ? Object.entries(contentData.byPlatform).map(([platform, count]) => ({ platform, count }))
-    : socialSummary.map((r) => ({ platform: r.platform, count: r.posts }));
+    : activeSummary.map((r) => ({ platform: r.platform, count: r.posts }));
 
   return (
     <>
@@ -761,10 +984,10 @@ export default function WVWCommandCenter() {
               >
                 <RefreshCcw className="w-4 h-4 mr-2" /> Refresh
               </Button>
-              <Button variant="outline" className="rounded-2xl text-sm opacity-50 cursor-not-allowed" style={{ borderColor: C.gold, color: C.charcoal }} title="Coming soon">
+              <Button variant="outline" className="rounded-2xl text-sm" style={{ borderColor: C.gold, color: C.charcoal }} onClick={() => setActiveTab("autopost")}>
                 <Megaphone className="w-4 h-4 mr-2" /> Auto-Post Queue
               </Button>
-              <Button variant="outline" className="rounded-2xl text-sm opacity-50 cursor-not-allowed" style={{ borderColor: C.gold, color: C.charcoal }} title="Coming soon">
+              <Button variant="outline" className="rounded-2xl text-sm" style={{ borderColor: C.gold, color: C.charcoal }} onClick={() => setActiveTab("autopost")}>
                 <Bell className="w-4 h-4 mr-2" /> Alerts
               </Button>
             </div>
@@ -773,9 +996,9 @@ export default function WVWCommandCenter() {
           {/* ── KPI row ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[
-              { label: "Total Audience",      value: totalFollowers.toLocaleString(), icon: Users,      note: "Estimated — update in socialSummary" },
-              { label: "Avg Engagement",      value: `${avgEngagement}%`,             icon: Gauge,      note: "Estimated — update in socialSummary" },
-              { label: "Top Platform",        value: topPlatform.platform,            icon: TrendingUp,  note: `${topPlatform.engagement}% est. engagement` },
+              { label: "Total Audience",      value: totalFollowers.toLocaleString(), icon: Users,      note: statsHaveData ? `Updated ${statsLastUpdated ? new Date(statsLastUpdated).toLocaleDateString() : "recently"}` : "Enter your stats in Settings → Update Stats" },
+              { label: "Avg Engagement",      value: `${avgEngagement}%`,             icon: Gauge,      note: statsHaveData ? "From your stats" : "Enter your stats in Settings → Update Stats" },
+              { label: "Top Platform",        value: topPlatform.platform,            icon: TrendingUp,  note: `${topPlatform.engagement}% engagement` },
               { label: "Favorite Newsletter", value: topNewsletter.name,              icon: FileText,    note: `Score ${topNewsletter.favoriteScore} · estimated` },
             ].map((item) => (
               <Card key={item.label} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
@@ -950,7 +1173,7 @@ export default function WVWCommandCenter() {
                         </tr>
                       </thead>
                       <tbody>
-                        {socialSummary.map((row) => (
+                        {activeSummary.map((row) => (
                           <tr key={row.platform} className="border-b last:border-0" style={{ borderColor: "#DDD7CD" }}>
                             <td className="py-2.5 pr-4 font-medium text-sm">{row.platform}</td>
                             <td className="pr-4 text-sm" style={{ color: C.charcoal }}>{row.followers.toLocaleString()}</td>
@@ -965,7 +1188,7 @@ export default function WVWCommandCenter() {
                   </div>
                   <div className="h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={socialSummary}>
+                      <BarChart data={activeSummary}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#DDD7CD" />
                         <XAxis dataKey="platform" hide />
                         <YAxis tick={{ fontSize: 11, fill: C.charcoal }} />
@@ -977,18 +1200,6 @@ export default function WVWCommandCenter() {
                 </CardContent>
               </Card>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                {["Auto-post approval queue", "Best posting-time engine", "Post-level lead attribution", "Top-performing hook library"].map((item) => (
-                  <Card key={item} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
-                    <CardContent className="p-5 flex items-center gap-3">
-                      <div className="p-3 rounded-2xl" style={{ background: C.ivory }}>
-                        <Workflow className="w-4 h-4" style={{ color: C.forest }} />
-                      </div>
-                      <p className="text-sm font-medium" style={{ color: C.charcoal }}>{item}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
             </TabsContent>
 
             {/* ── Reddit / Trends ── */}
@@ -1514,12 +1725,32 @@ export default function WVWCommandCenter() {
                       </p>
                     )}
 
+                    <Button
+                      className="w-full rounded-2xl"
+                      variant="outline"
+                      style={{ borderColor: C.forest, color: C.forest }}
+                      onClick={triggerBlackExcellence}
+                      disabled={beTriggering || triggering || wisdomTriggering}
+                    >
+                      {beTriggering
+                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</>
+                        : <><Users className="w-4 h-4 mr-2" /> Send Black Excellence Post Now</>
+                      }
+                    </Button>
+
+                    {beResult && (
+                      <p className="text-xs text-center pt-1" style={{ color: C.charcoal }}>
+                        {beResult}
+                      </p>
+                    )}
+
                     <div
                       className="p-3 rounded-2xl text-xs space-y-1"
                       style={{ background: C.ivory, color: C.charcoal }}
                     >
                       <p><strong style={{ color: C.warmBlack }}>Daily cron:</strong> Daily 12pm ET (17:00 UTC)</p>
                       <p><strong style={{ color: C.warmBlack }}>Wisdom cron:</strong> Daily 9am ET (14:00 UTC) · all socials</p>
+                      <p><strong style={{ color: C.warmBlack }}>Black Excellence cron:</strong> Daily 3pm ET (20:00 UTC) · Threads, Twitter, Bluesky, LinkedIn WVW, Facebook</p>
                       <p><strong style={{ color: C.warmBlack }}>Newsletter cron:</strong> Mon / Wed / Fri 1pm ET (18:00 UTC)</p>
                       <p><strong style={{ color: C.warmBlack }}>Instagram:</strong> carousel posts via Meta API</p>
                       <p><strong style={{ color: C.warmBlack }}>Threads / Twitter / Facebook:</strong> posts directly</p>
@@ -1608,6 +1839,123 @@ export default function WVWCommandCenter() {
                       </React.Fragment>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* ── Strategy Alerts ── */}
+              {alerts.length > 0 && (
+                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                  <CardHeader>
+                    <CardTitle className="font-serif text-xl flex items-center gap-2">
+                      <Bell className="w-4 h-4" style={{ color: C.forest }} /> Strategy Alerts
+                    </CardTitle>
+                    <CardDescription style={{ color: C.charcoal }}>Live signals from your post log and lead tracker.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {alerts.map((a, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-2xl" style={{
+                        background: a.severity === "warning" ? "#FEF3C7" : a.severity === "success" ? C.forest + "11" : C.ivory,
+                        border: `1px solid ${a.severity === "warning" ? "#FDE68A" : a.severity === "success" ? C.forest + "33" : "#DDD7CD"}`,
+                      }}>
+                        <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: a.severity === "warning" ? "#D97706" : a.severity === "success" ? C.forest : C.charcoal }} />
+                        <div>
+                          <p className="text-sm font-medium" style={{ color: C.warmBlack }}>{a.title}</p>
+                          <p className="text-xs mt-0.5" style={{ color: C.charcoal }}>{a.body}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* ── Content Queue (Workflow Routing) ── */}
+              <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="font-serif text-xl flex items-center gap-2">
+                        <FolderKanban className="w-4 h-4" style={{ color: C.forest }} /> Content Queue
+                      </CardTitle>
+                      <CardDescription style={{ color: C.charcoal }}>Generate drafts here, review them, then approve to post. Or post immediately above.</CardDescription>
+                    </div>
+                    <Button
+                      size="sm" className="rounded-2xl text-xs shrink-0" style={{ background: C.forest, color: C.bone }}
+                      onClick={generateToQueue} disabled={generatingToQueue}
+                    >
+                      {generatingToQueue ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Generating…</> : <><Zap className="w-3.5 h-3.5 mr-1" /> Generate to Queue</>}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {queueLoading ? (
+                    <div className="flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}><Loader2 className="w-4 h-4 animate-spin" style={{ color: C.forest }} /> Loading queue…</div>
+                  ) : queue.filter((q) => q.status === "draft").length === 0 ? (
+                    <p className="text-sm text-center py-6" style={{ color: C.charcoal }}>
+                      No drafts in queue. Click &ldquo;Generate to Queue&rdquo; to create today's content for review.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {queue.filter((q) => q.status === "draft").map((item) => (
+                        <div key={item.id} className="p-4 rounded-2xl border space-y-3" style={{ background: C.ivory, borderColor: C.gold + "55" }}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: C.forest + "22", color: C.forest }}>
+                                {item.platform.replace(/_/g, " ")}
+                              </span>
+                              <span className="text-xs" style={{ color: C.charcoal }}>{item.theme}</span>
+                            </div>
+                            <span className="text-[10px]" style={{ color: C.charcoal }}>
+                              {new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </span>
+                          </div>
+                          <textarea
+                            value={editingQueue[item.id] ?? item.text}
+                            onChange={(e) => setEditingQueue((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                            rows={4}
+                            className="w-full text-sm rounded-xl px-3 py-2 border resize-none"
+                            style={{ background: C.bone, borderColor: "#DDD7CD", color: C.warmBlack }}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm" className="rounded-2xl text-xs" style={{ background: C.forest, color: C.bone }}
+                              onClick={() => approveQueueItem(item)} disabled={queuePosting[item.id]}
+                            >
+                              {queuePosting[item.id] ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Posting…</> : <><Play className="w-3 h-3 mr-1" /> Approve & Post</>}
+                            </Button>
+                            <Button
+                              size="sm" variant="outline" className="rounded-2xl text-xs" style={{ borderColor: C.rose, color: C.rose }}
+                              onClick={() => rejectQueueItem(item.id)}
+                            >
+                              Reject
+                            </Button>
+                            <Button
+                              size="sm" variant="outline" className="rounded-2xl text-xs ml-auto" style={{ borderColor: "#DDD7CD", color: C.charcoal }}
+                              onClick={() => deleteQueueItem(item.id)}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Recent posted/rejected items */}
+                  {queue.filter((q) => q.status !== "draft").length > 0 && (
+                    <div className="mt-4 space-y-1.5">
+                      <p className="text-xs font-medium mb-2" style={{ color: C.charcoal }}>History</p>
+                      {queue.filter((q) => q.status !== "draft").slice(0, 5).map((item) => (
+                        <div key={item.id} className="flex items-center gap-2 p-2 rounded-xl" style={{ background: C.ivory }}>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{
+                            background: item.status === "posted" ? C.forest + "22" : item.status === "rejected" ? C.rose + "22" : "#DDD7CD",
+                            color: item.status === "posted" ? C.forest : item.status === "rejected" ? C.rose : C.charcoal,
+                          }}>{item.status}</span>
+                          <span className="text-xs font-medium">{item.platform.replace(/_/g, " ")}</span>
+                          <span className="text-xs truncate flex-1" style={{ color: C.charcoal }}>{item.text.slice(0, 60)}…</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -2152,8 +2500,71 @@ export default function WVWCommandCenter() {
 
             {/* ── Intelligence ── */}
             <TabsContent value="intelligence" className="space-y-4">
+              {/* ── Lead Attribution (live) ── */}
+              {attribution && (attribution.topThemes.length > 0 || attribution.topPlatforms.length > 0) ? (
+                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="font-serif text-xl flex items-center gap-2">
+                          <Target className="w-4 h-4" style={{ color: C.forest }} /> Lead Attribution
+                        </CardTitle>
+                        <CardDescription style={{ color: C.charcoal }}>
+                          Which content themes and platforms are driving your leads — based on your real post log and lead tracker.
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-4 text-center shrink-0">
+                        <div><p className="font-serif text-2xl font-semibold">{attribution.totalPosts}</p><p className="text-xs" style={{ color: C.charcoal }}>Posts</p></div>
+                        <div><p className="font-serif text-2xl font-semibold">{attribution.totalLeads}</p><p className="text-xs" style={{ color: C.charcoal }}>Leads</p></div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-medium mb-2" style={{ color: C.charcoal }}>By Theme</p>
+                        <div className="space-y-2">
+                          {attribution.topThemes.slice(0, 6).map((t) => (
+                            <div key={t.theme} className="flex items-center gap-3 p-2.5 rounded-2xl" style={{ background: C.ivory }}>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{t.theme}</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: C.charcoal }}>{t.posts} posts · {t.leads} leads · {t.conversions} conversions</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-semibold font-serif" style={{ color: C.forest }}>{t.leads}</p>
+                                <p className="text-[10px]" style={{ color: C.charcoal }}>leads</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium mb-2" style={{ color: C.charcoal }}>By Platform</p>
+                        <div className="space-y-2">
+                          {attribution.topPlatforms.slice(0, 6).map((p) => (
+                            <div key={p.platform} className="flex items-center gap-3 p-2.5 rounded-2xl" style={{ background: C.ivory }}>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate capitalize">{p.platform.replace(/_/g, " ")}</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: C.charcoal }}>{p.posts} posts</p>
+                              </div>
+                              <p className="text-sm font-semibold font-serif shrink-0" style={{ color: C.forest }}>{p.leads} leads</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="px-1">
+                  <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.forest + "22", color: C.forest }}>
+                    Lead Attribution will populate as you post content and log leads in the Community tab.
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 px-1">
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — replace with your real post analytics</span>
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>AI Insights below use sample posts — connect platform analytics APIs for live data</span>
               </div>
               <AIInsightsPanel posts={samplePosts} />
             </TabsContent>
@@ -2168,16 +2579,176 @@ export default function WVWCommandCenter() {
 
             {/* ── Community ── */}
             <TabsContent value="community" className="space-y-4">
-              <div className="flex items-center gap-2 px-1">
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — log real DMs and comments here to track actual leads</span>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.forest + "22", color: C.forest }}>
+                  {leadsLoading ? "Loading…" : `${realLeads.length} interactions · live from Supabase`}
+                </span>
+                <Button size="sm" className="rounded-2xl text-xs" style={{ background: C.forest, color: C.bone }} onClick={() => setShowLeadForm((v) => !v)}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Log a Lead
+                </Button>
               </div>
-              <CommunityLeads interactions={sampleInteractions} />
+
+              {showLeadForm && (
+                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: C.gold + "66" }}>
+                  <CardHeader>
+                    <CardTitle className="font-serif text-lg">Log an Interaction</CardTitle>
+                    <CardDescription style={{ color: C.charcoal }}>Track a DM, comment, inquiry, referral, or any high-signal interaction.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Platform</p>
+                        <select value={leadForm.platform} onChange={(e) => setLeadForm((f) => ({ ...f, platform: e.target.value }))} className="w-full h-9 text-sm rounded-xl px-3 border" style={{ background: C.ivory, borderColor: "#DDD7CD", color: C.warmBlack }}>
+                          {["LinkedIn Personal","LinkedIn WVW","Instagram","TikTok","Threads","Facebook","Bluesky","Newsletter","Podcast"].map((p) => <option key={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Interaction Type</p>
+                        <select value={leadForm.interaction_type} onChange={(e) => setLeadForm((f) => ({ ...f, interaction_type: e.target.value }))} className="w-full h-9 text-sm rounded-xl px-3 border" style={{ background: C.ivory, borderColor: "#DDD7CD", color: C.warmBlack }}>
+                          {["Inquiry","DM","Comment","Collaboration","Testimonial","Referral","Newsletter Reply","Podcast Listener Message"].map((t) => <option key={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Name / Handle</p>
+                        <Input value={leadForm.user_name} onChange={(e) => setLeadForm((f) => ({ ...f, user_name: e.target.value }))} placeholder="e.g. Marcus T. or @handle" className="h-9 text-sm rounded-xl" style={{ background: C.ivory, borderColor: "#DDD7CD" }} />
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Follow-Up Status</p>
+                        <select value={leadForm.follow_up_status} onChange={(e) => setLeadForm((f) => ({ ...f, follow_up_status: e.target.value }))} className="w-full h-9 text-sm rounded-xl px-3 border" style={{ background: C.ivory, borderColor: "#DDD7CD", color: C.warmBlack }}>
+                          {["New","Needs Response","Responded","Warm Lead","Booked Call","Closed","Not a Fit"].map((s) => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>What did they say? (summary)</p>
+                      <textarea value={leadForm.message_summary} onChange={(e) => setLeadForm((f) => ({ ...f, message_summary: e.target.value }))} rows={2} placeholder="e.g. Asking about organizational consulting for their nonprofit…" className="w-full text-sm rounded-xl px-3 py-2 border resize-none" style={{ background: C.ivory, borderColor: "#DDD7CD", color: C.warmBlack }} />
+                    </div>
+                    <div>
+                      <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Notes (optional)</p>
+                      <Input value={leadForm.notes} onChange={(e) => setLeadForm((f) => ({ ...f, notes: e.target.value }))} placeholder="e.g. VP-level, follow up with deck" className="h-9 text-sm rounded-xl" style={{ background: C.ivory, borderColor: "#DDD7CD" }} />
+                    </div>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: C.charcoal }}>
+                        <input type="checkbox" checked={leadForm.lead_flag} onChange={(e) => setLeadForm((f) => ({ ...f, lead_flag: e.target.checked }))} />
+                        Mark as Lead
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: C.charcoal }}>
+                        <input type="checkbox" checked={leadForm.follow_up_needed} onChange={(e) => setLeadForm((f) => ({ ...f, follow_up_needed: e.target.checked }))} />
+                        Follow-Up Needed
+                      </label>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button className="rounded-2xl text-sm" style={{ background: C.forest, color: C.bone }} onClick={submitLead} disabled={leadSaving || !leadForm.user_name.trim() || !leadForm.message_summary.trim()}>
+                        {leadSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Save Interaction"}
+                      </Button>
+                      <Button variant="outline" className="rounded-2xl text-sm" style={{ borderColor: "#DDD7CD" }} onClick={() => setShowLeadForm(false)}>Cancel</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <CommunityLeads interactions={realLeads} />
             </TabsContent>
 
             {/* ── Conversions ── */}
             <TabsContent value="conversions" className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.forest + "22", color: C.forest }}>
+                  {realConversions.length > 0 ? `${realConversions.length} conversions logged · live from Supabase` : "Log your real consultations, speaking gigs, and client conversions here"}
+                </span>
+                <Button size="sm" className="rounded-2xl text-xs" style={{ background: C.forest, color: C.bone }} onClick={() => setShowConversionForm((v) => !v)}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Log Conversion
+                </Button>
+              </div>
+
+              {showConversionForm && (
+                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: C.gold + "66" }}>
+                  <CardHeader>
+                    <CardTitle className="font-serif text-lg">Log a Conversion</CardTitle>
+                    <CardDescription style={{ color: C.charcoal }}>Track a consultation, discovery call, speaking engagement, or any business outcome.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Source Platform</p>
+                        <select value={conversionForm.source_platform} onChange={(e) => setConversionForm((f) => ({ ...f, source_platform: e.target.value }))} className="w-full h-9 text-sm rounded-xl px-3 border" style={{ background: C.ivory, borderColor: "#DDD7CD", color: C.warmBlack }}>
+                          {["LinkedIn Personal","LinkedIn WVW","Instagram","TikTok","Threads","Facebook","Bluesky","Newsletter","Podcast","Referral","Direct"].map((p) => <option key={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Conversion Type</p>
+                        <select value={conversionForm.conversion_type} onChange={(e) => setConversionForm((f) => ({ ...f, conversion_type: e.target.value }))} className="w-full h-9 text-sm rounded-xl px-3 border" style={{ background: C.ivory, borderColor: "#DDD7CD", color: C.warmBlack }}>
+                          {["Consultation Inquiry","Discovery Call","Consulting Engagement","Speaking Opportunity","Workshop","WVW Academy Signup","Newsletter Signup","Partnership","Referral","Other"].map((t) => <option key={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Status</p>
+                        <select value={conversionForm.status} onChange={(e) => setConversionForm((f) => ({ ...f, status: e.target.value }))} className="w-full h-9 text-sm rounded-xl px-3 border" style={{ background: C.ivory, borderColor: "#DDD7CD", color: C.warmBlack }}>
+                          {["New","In Progress","Converted","Lost","Nurture"].map((s) => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Value (USD, optional)</p>
+                        <Input type="number" value={conversionForm.value_usd} onChange={(e) => setConversionForm((f) => ({ ...f, value_usd: Number(e.target.value) }))} placeholder="e.g. 4500" className="h-9 text-sm rounded-xl" style={{ background: C.ivory, borderColor: "#DDD7CD" }} />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Description</p>
+                      <textarea value={conversionForm.description} onChange={(e) => setConversionForm((f) => ({ ...f, description: e.target.value }))} rows={2} placeholder="e.g. 3-month org consulting engagement for nonprofit, 200 employees…" className="w-full text-sm rounded-xl px-3 py-2 border resize-none" style={{ background: C.ivory, borderColor: "#DDD7CD", color: C.warmBlack }} />
+                    </div>
+                    <div>
+                      <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Notes (optional)</p>
+                      <Input value={conversionForm.notes} onChange={(e) => setConversionForm((f) => ({ ...f, notes: e.target.value }))} placeholder="e.g. referred by Marcus T., call scheduled May 15" className="h-9 text-sm rounded-xl" style={{ background: C.ivory, borderColor: "#DDD7CD" }} />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button className="rounded-2xl text-sm" style={{ background: C.forest, color: C.bone }} onClick={submitConversion} disabled={conversionSaving || !conversionForm.description.trim()}>
+                        {conversionSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Save Conversion"}
+                      </Button>
+                      <Button variant="outline" className="rounded-2xl text-sm" style={{ borderColor: "#DDD7CD" }} onClick={() => setShowConversionForm(false)}>Cancel</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {realConversions.length > 0 && (
+                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="font-serif text-xl">Your Conversions</CardTitle>
+                      <div className="text-right">
+                        <p className="font-serif text-2xl font-semibold" style={{ color: C.forest }}>
+                          ${realConversions.reduce((s, c) => s + (c.value_usd ?? 0), 0).toLocaleString()}
+                        </p>
+                        <p className="text-xs" style={{ color: C.charcoal }}>total value logged</p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {realConversions.map((c) => (
+                        <div key={c.id} className="p-3 rounded-2xl border flex items-start gap-3" style={{ background: C.ivory, borderColor: "#DDD7CD" }}>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-sm font-medium">{c.conversion_type}</span>
+                              <span className="text-xs" style={{ color: C.charcoal }}>· {c.source_platform}</span>
+                            </div>
+                            <p className="text-xs" style={{ color: C.charcoal }}>{c.description}</p>
+                            {c.notes && <p className="text-[11px] mt-1 italic" style={{ color: C.sage }}>{c.notes}</p>}
+                          </div>
+                          <div className="text-right shrink-0 space-y-1">
+                            <span className="text-xs px-2 py-0.5 rounded-full block" style={{ background: c.status === "Converted" ? C.forest + "22" : c.status === "Lost" ? C.rose + "22" : C.gold + "33", color: c.status === "Converted" ? C.forest : c.status === "Lost" ? C.rose : C.charcoal }}>{c.status}</span>
+                            {c.value_usd > 0 && <p className="text-xs font-semibold" style={{ color: C.forest }}>${c.value_usd.toLocaleString()}</p>}
+                            <p className="text-[10px]" style={{ color: C.charcoal }}>{new Date(c.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <div className="flex items-center gap-2 px-1">
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — log real discovery calls and client conversions here</span>
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Sample conversion funnel shown below — your real data appears above</span>
               </div>
               <ConversionEngine conversions={sampleConversions} />
             </TabsContent>
@@ -2201,13 +2772,84 @@ export default function WVWCommandCenter() {
             {/* ── Reports ── */}
             <TabsContent value="reports" className="space-y-4">
               <div className="flex items-center gap-2 px-1">
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — reports will reflect real numbers once analytics are connected</span>
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Community leads are live. Post analytics require platform API access to be real.</span>
               </div>
-              <ReportsSection posts={samplePosts} conversions={sampleConversions} interactions={sampleInteractions} />
+              <ReportsSection posts={samplePosts} conversions={sampleConversions} interactions={realLeads} />
             </TabsContent>
 
             {/* ── Settings ── */}
             <TabsContent value="settings" className="space-y-4">
+
+              {/* ── Update Your Stats ── */}
+              <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="font-serif text-xl">Update Your Stats</CardTitle>
+                      <CardDescription style={{ color: C.charcoal }}>
+                        Enter your real follower counts, engagement rates, and CTR per platform. Saves to Supabase — persists across sessions.
+                        {statsLastUpdated && <span className="ml-2 text-[11px]">Last updated: {new Date(statsLastUpdated).toLocaleDateString()}</span>}
+                      </CardDescription>
+                    </div>
+                    {!statsEditing && (
+                      <Button size="sm" variant="outline" className="rounded-2xl text-xs shrink-0" style={{ borderColor: C.forest, color: C.forest }}
+                        onClick={() => { setStatsDraft(activeSummary.map((r) => ({ platform: r.platform, followers: r.followers, engagement: r.engagement, ctr: r.ctr, posts: r.posts, lead_score: r.leadScore, updated_at: null }))); setStatsEditing(true); }}>
+                        Edit Stats
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {statsEditing ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-6 gap-2 text-xs font-medium px-2" style={{ color: C.charcoal }}>
+                        <span className="col-span-2">Platform</span><span>Followers</span><span>Eng %</span><span>CTR %</span><span>Posts</span>
+                      </div>
+                      {statsDraft.map((row, i) => (
+                        <div key={row.platform} className="grid grid-cols-6 gap-2 items-center p-2 rounded-xl" style={{ background: C.ivory }}>
+                          <span className="col-span-2 text-xs font-medium" style={{ color: C.warmBlack }}>{row.platform}</span>
+                          <input type="number" value={row.followers} onChange={(e) => setStatsDraft((d) => d.map((r, j) => j === i ? { ...r, followers: Number(e.target.value) } : r))} className="h-7 text-xs rounded-lg px-2 border w-full" style={{ background: C.bone, borderColor: "#DDD7CD" }} />
+                          <input type="number" step="0.1" value={row.engagement} onChange={(e) => setStatsDraft((d) => d.map((r, j) => j === i ? { ...r, engagement: Number(e.target.value) } : r))} className="h-7 text-xs rounded-lg px-2 border w-full" style={{ background: C.bone, borderColor: "#DDD7CD" }} />
+                          <input type="number" step="0.1" value={row.ctr} onChange={(e) => setStatsDraft((d) => d.map((r, j) => j === i ? { ...r, ctr: Number(e.target.value) } : r))} className="h-7 text-xs rounded-lg px-2 border w-full" style={{ background: C.bone, borderColor: "#DDD7CD" }} />
+                          <input type="number" value={row.posts} onChange={(e) => setStatsDraft((d) => d.map((r, j) => j === i ? { ...r, posts: Number(e.target.value) } : r))} className="h-7 text-xs rounded-lg px-2 border w-full" style={{ background: C.bone, borderColor: "#DDD7CD" }} />
+                        </div>
+                      ))}
+                      <div className="flex gap-2 pt-1">
+                        <Button className="rounded-2xl text-sm" style={{ background: C.forest, color: C.bone }} onClick={saveStats} disabled={statsSaving}>
+                          {statsSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Save Stats"}
+                        </Button>
+                        <Button variant="outline" className="rounded-2xl text-sm" style={{ borderColor: "#DDD7CD" }} onClick={() => setStatsEditing(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b" style={{ borderColor: "#DDD7CD" }}>
+                            {["Platform","Followers","Eng %","CTR %","Posts / Mo","Lead Score"].map((h) => (
+                              <th key={h} className="pb-2 pr-4 text-xs font-medium" style={{ color: C.charcoal }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activeSummary.map((row) => (
+                            <tr key={row.platform} className="border-b last:border-0" style={{ borderColor: "#DDD7CD" }}>
+                              <td className="py-2 pr-4 text-sm font-medium">{row.platform}</td>
+                              <td className="pr-4 text-sm" style={{ color: row.followers === 0 ? C.charcoal+"66" : C.charcoal }}>{row.followers === 0 ? "—" : row.followers.toLocaleString()}</td>
+                              <td className="pr-4 text-sm" style={{ color: C.charcoal }}>{row.engagement === 0 ? "—" : `${row.engagement}%`}</td>
+                              <td className="pr-4 text-sm" style={{ color: C.charcoal }}>{row.ctr === 0 ? "—" : `${row.ctr}%`}</td>
+                              <td className="pr-4 text-sm" style={{ color: C.charcoal }}>{row.posts === 0 ? "—" : row.posts}</td>
+                              <td className="text-sm font-medium" style={{ color: C.forest }}>{row.leadScore === 0 ? "—" : row.leadScore}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {!statsHaveData && <p className="text-xs mt-3 text-center" style={{ color: C.charcoal }}>No stats yet — click Edit Stats to enter your real numbers.</p>}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Platform connection status */}
               <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                 <CardHeader>
@@ -2345,8 +2987,8 @@ export default function WVWCommandCenter() {
                     { section: "Socials → Platform Performance table", what: "Live follower count, reach, CTR per platform" },
                     { section: "Overview → Growth Trend chart", what: "Real month-by-month engagement and lead tracking" },
                     { section: "Performance + Intelligence tabs", what: "Actual post-level analytics replacing sample data" },
-                    { section: "Calendar", what: "Already live once SUPABASE_URL and SUPABASE_ANON_KEY are in Vercel" },
-                    { section: "Recent Posts log", what: "Already live once SUPABASE_URL and SUPABASE_ANON_KEY are in Vercel" },
+                    { section: "Calendar", what: "Live — posts appear after each cron run (12pm ET daily)" },
+                    { section: "Recent Posts log", what: "Live — last 15 posts tracked in Supabase post_log" },
                   ].map((row) => (
                     <div key={row.section} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: C.ivory }}>
                       <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: C.gold }} />
@@ -2362,21 +3004,64 @@ export default function WVWCommandCenter() {
 
           </Tabs>
 
-          {/* ── Bottom integrations row ── */}
+          {/* ── Layer 2 feature cards ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[
-              { icon: Link2,        title: "Live Integrations",  text: "Meta, LinkedIn, TikTok, Reddit, newsletter tools, CRM, scheduler" },
-              { icon: FolderKanban, title: "Workflow Routing",   text: "Idea → approve → publish → analyze → repurpose" },
-              { icon: Target,       title: "Lead Attribution",   text: "Know which content themes bring consultations and inquiries" },
-              { icon: Lightbulb,    title: "Strategy Alerts",    text: "Get notified when a topic spikes or a pillar underperforms" },
+              {
+                icon: Link2,
+                title: "Live Integrations",
+                text: "LinkedIn, Threads, Bluesky, Facebook, Beehiiv connected. Add Twitter, Instagram, TikTok in Settings.",
+                tab: "settings",
+                action: "Manage Connections",
+                live: true,
+              },
+              {
+                icon: FolderKanban,
+                title: "Content Queue",
+                text: `${queue.filter((q) => q.status === "draft").length} draft${queue.filter((q) => q.status === "draft").length !== 1 ? "s" : ""} waiting for approval. Generate, review, and approve before posting.`,
+                tab: "autopost",
+                action: "Open Queue",
+                live: true,
+              },
+              {
+                icon: Target,
+                title: "Lead Attribution",
+                text: attribution
+                  ? `${attribution.totalPosts} posts · ${attribution.totalLeads} leads tracked. See which themes drive business.`
+                  : "Log leads in Community tab to see which content themes drive business.",
+                tab: "intelligence",
+                action: "View Attribution",
+                live: !!attribution,
+              },
+              {
+                icon: Lightbulb,
+                title: "Strategy Alerts",
+                text: alerts.length > 0
+                  ? `${alerts.filter((a) => a.severity === "warning").length} warning${alerts.filter((a) => a.severity === "warning").length !== 1 ? "s" : ""} · ${alerts.filter((a) => a.severity === "success").length} positive signal${alerts.filter((a) => a.severity === "success").length !== 1 ? "s" : ""} from your post log.`
+                  : "Pillar gap detection and lead spike alerts based on your real post log.",
+                tab: "autopost",
+                action: "View Alerts",
+                live: alerts.length > 0,
+              },
             ].map((card) => (
-              <Card key={card.title} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+              <Card
+                key={card.title}
+                className="rounded-3xl shadow-none cursor-pointer transition-shadow hover:shadow-md"
+                style={{ background: C.bone, borderColor: card.live ? C.forest + "44" : "#DDD7CD" }}
+                onClick={() => setActiveTab(card.tab)}
+              >
                 <CardContent className="p-5 space-y-3">
-                  <div className="p-3 rounded-2xl w-fit" style={{ background: C.ivory }}>
-                    <card.icon className="w-4 h-4" style={{ color: C.forest }} />
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 rounded-2xl" style={{ background: card.live ? C.forest + "11" : C.ivory }}>
+                      <card.icon className="w-4 h-4" style={{ color: C.forest }} />
+                    </div>
+                    {card.live && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: C.forest + "22", color: C.forest }}>Live</span>
+                    )}
                   </div>
                   <h3 className="font-serif text-base font-semibold">{card.title}</h3>
                   <p className="text-sm" style={{ color: C.charcoal }}>{card.text}</p>
+                  <p className="text-xs font-medium" style={{ color: C.forest }}>→ {card.action}</p>
                 </CardContent>
               </Card>
             ))}
@@ -2389,27 +3074,29 @@ export default function WVWCommandCenter() {
           >
             <CardContent className="p-6 md:p-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div>
-                <p className="text-xs font-medium mb-2" style={{ color: C.gold }}>Next build layer</p>
+                <p className="text-xs font-medium mb-2" style={{ color: C.gold }}>Platform status</p>
                 <h2 className="font-serif text-2xl md:text-3xl font-semibold" style={{ color: C.bone }}>
-                  Wire this prototype to real platform APIs and auto-publishing.
+                  Your command center is live and posting.
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm" style={{ color: C.bone + "cc" }}>
-                  Connect Meta, LinkedIn, and TikTok APIs with a scheduler, a CRM, and background jobs so every signal here becomes a live action — not a prompt.
+                  LinkedIn, Threads, Bluesky, and Facebook are connected. Unicorn Wisdoms post daily at 9am ET. Content cron runs at 12pm ET. Add Twitter, Instagram, and TikTok credentials in Settings to expand your reach.
                 </p>
               </div>
               <div className="flex gap-3 flex-wrap">
                 <Button
                   className="rounded-2xl"
                   style={{ background: C.gold, color: C.warmBlack }}
+                  onClick={() => setActiveTab("settings")}
                 >
-                  <Sparkles className="w-4 h-4 mr-2" /> Connect Data
+                  <Sparkles className="w-4 h-4 mr-2" /> View Settings
                 </Button>
                 <Button
                   variant="outline"
                   className="rounded-2xl"
                   style={{ borderColor: C.bone + "66", color: C.bone }}
+                  onClick={() => setActiveTab("autopost")}
                 >
-                  <BarChart3 className="w-4 h-4 mr-2" /> Build Backend
+                  <BarChart3 className="w-4 h-4 mr-2" /> Auto-Post Queue
                 </Button>
               </div>
             </CardContent>

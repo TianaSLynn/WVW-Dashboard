@@ -69,6 +69,91 @@ Return format:
   return JSON.parse(match[0]) as GeneratedPosts;
 }
 
+const BLACK_EXCELLENCE_CATEGORIES = [
+  "Black Psychologist",
+  "Black Psychology Study",
+  "Black Quote",
+  "Black Inspiration",
+  "Black Neurodivergent Person",
+] as const;
+
+export type BlackExcellenceCategory = (typeof BLACK_EXCELLENCE_CATEGORIES)[number];
+
+export interface BlackExcellencePosts {
+  category: BlackExcellenceCategory;
+  subject: string;
+  twitter: string;
+  threads: string;
+  bluesky_personal: string;
+  linkedin_wvw: string;
+  facebook: string;
+  bluesky_wvw: string;
+}
+
+export function getTodayBlackExcellenceCategory(): BlackExcellenceCategory {
+  const start = new Date(new Date().getFullYear(), 0, 0).getTime();
+  const dayOfYear = Math.floor((Date.now() - start) / 86400000);
+  return BLACK_EXCELLENCE_CATEGORIES[dayOfYear % BLACK_EXCELLENCE_CATEGORIES.length];
+}
+
+export async function generateBlackExcellence(
+  category: BlackExcellenceCategory
+): Promise<BlackExcellencePosts> {
+  const categoryGuides: Record<BlackExcellenceCategory, string> = {
+    "Black Psychologist":
+      "Spotlight a real, named Black psychologist (e.g. Kenneth Clark, Beverly Daniel Tatum, Thema Bryant, Na'im Akbar, Joy DeGruy, A. Wade Boykin, Umar Johnson, Riana Elyse Anderson). Mention their contribution to the field.",
+    "Black Psychology Study":
+      "Reference a real published psychological study, framework, or finding authored or co-authored by Black researchers, or focused specifically on Black mental health, identity, or neurodivergence. Cite the researcher and concept clearly.",
+    "Black Quote":
+      "Use a real, attributable quote from a Black leader, thinker, author, activist, or psychologist that speaks to identity, healing, resilience, systems, or psychology. Include the full name and context of who said it.",
+    "Black Inspiration":
+      "Spotlight a real Black person whose life or work is an example of resilience, systems change, mental health advocacy, neurodivergence, or breaking barriers — not just surviving but building.",
+    "Black Neurodivergent Person":
+      "Spotlight a real, named Black person who is publicly neurodivergent (ADHD, autism, dyslexia, etc.) — an artist, athlete, executive, activist, or thinker. Name the person, their neurodivergence, and their contribution.",
+  };
+
+  const prompt = `You are creating content for WVW's "Black Excellence" daily post series. Today's category: "${category}".
+
+${categoryGuides[category]}
+
+WVW context: Wholistic Vibes Wellness is a Black-led B2B organizational consulting practice focused on Black mental health in the workplace, psychological safety, neuroinclusion, and burnout. Founded by Tiána Lynn. Brand voice: calm, grounded, precise, luxury positioning. Core line: "Soft in appearance. Uncompromising in practice."
+
+Generate posts for all 6 formats below. Return ONLY valid JSON — no markdown, no preamble.
+
+Format rules:
+- "subject": the person/study/quote subject (name or short title, e.g. "Dr. Beverly Daniel Tatum")
+- "twitter": ≤240 characters. Sharp, declarative. Honors the subject. No hashtag spam. Ends clean.
+- "threads": ≤480 characters. 2-3 sentences. Educational and honoring. No hashtags.
+- "bluesky_personal": ≤270 characters. Written as Tiána (first person). Feels like a genuine personal reflection about why this person/study matters to her and her work. No hashtags.
+- "linkedin_wvw": 120-150 words. WVW consulting lens. Connects this person/study to psychological safety, Black identity at work, or neuroinclusion. B2B authority voice. No fluff.
+- "facebook": 80-120 words. Community-facing WVW page. Warm but precise. Invites reflection. May end with a soft question.
+- "bluesky_wvw": ≤270 characters. WVW brand voice. Connects the subject to WVW's work. Quiet authority.
+
+Return format:
+{
+  "subject": "...",
+  "twitter": "...",
+  "threads": "...",
+  "bluesky_personal": "...",
+  "linkedin_wvw": "...",
+  "facebook": "...",
+  "bluesky_wvw": "..."
+}`;
+
+  const msg = await client.messages.create({
+    model: "claude-opus-4-6",
+    max_tokens: 1800,
+    system: SYSTEM,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("Claude did not return valid JSON for Black Excellence");
+  const parsed = JSON.parse(match[0]) as Omit<BlackExcellencePosts, "category">;
+  return { category, ...parsed };
+}
+
 export async function generateWisdoms(count = 5): Promise<string[]> {
   const msg = await client.messages.create({
     model: "claude-opus-4-6",
