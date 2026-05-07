@@ -22,11 +22,19 @@ export async function GET() {
     // Supabase unavailable — return empty log, don't crash connections check
   }
 
-  return Response.json({
-    connections,
-    todayPlatforms: getTodayPlatforms(),
-    todayTheme: getTodayTheme(),
-    schedule: POSTING_SCHEDULE,
-    recentPosts,
-  });
+  return Response.json(
+    {
+      connections,
+      todayPlatforms: getTodayPlatforms(),
+      todayTheme: getTodayTheme(),
+      schedule: POSTING_SCHEDULE,
+      recentPosts,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+      },
+    }
+  );
 }

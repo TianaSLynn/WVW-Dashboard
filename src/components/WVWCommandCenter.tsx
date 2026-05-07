@@ -449,10 +449,13 @@ export default function WVWCommandCenter() {
   };
 
   useEffect(() => {
-    fetch("/api/posting/status")
-      .then((r) => r.json())
+    fetch("/api/posting/status", { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error(`Status ${r.status}`);
+        return r.json();
+      })
       .then((d: PostingStatus) => setPostingStatus(d))
-      .catch(() => {})
+      .catch((err) => console.error("[posting/status]", err))
       .finally(() => setPostingLoading(false));
   }, []);
 
