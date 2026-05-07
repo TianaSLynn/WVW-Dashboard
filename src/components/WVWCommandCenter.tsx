@@ -378,6 +378,7 @@ export default function WVWCommandCenter() {
   const [triggerResult, setTriggerResult] = useState<string | null>(null);
   const [wisdomTriggering, setWisdomTriggering] = useState(false);
   const [wisdomResult, setWisdomResult] = useState<string | null>(null);
+  const [statusDebug, setStatusDebug] = useState<string | null>(null);
   const [redditSignals, setRedditSignals] = useState<RedditSignal[]>([]);
   const [redditLoading, setRedditLoading] = useState(true);
   const [redditFetchedAt, setRedditFetchedAt] = useState<string | null>(null);
@@ -1370,6 +1371,32 @@ export default function WVWCommandCenter() {
             </TabsContent>
             {/* ── Auto-Post ── */}
             <TabsContent value="autopost" className="space-y-4">
+
+              {/* Live connection diagnostic */}
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl text-xs"
+                  style={{ borderColor: C.gold, color: C.charcoal }}
+                  onClick={() => {
+                    setStatusDebug("loading…");
+                    fetch("/api/posting/status", { cache: "no-store" })
+                      .then((r) => r.text())
+                      .then((t) => setStatusDebug(t))
+                      .catch((e) => setStatusDebug(`FETCH ERROR: ${String(e)}`));
+                  }}
+                >
+                  Run Connection Diagnostic
+                </Button>
+                {postingStatus && <span className="text-xs" style={{ color: C.forest }}>✓ Status loaded</span>}
+                {!postingStatus && !postingLoading && <span className="text-xs" style={{ color: C.rose }}>✗ Status failed to load</span>}
+              </div>
+              {statusDebug && (
+                <pre className="text-[10px] p-3 rounded-2xl overflow-x-auto leading-relaxed" style={{ background: C.ivory, color: C.charcoal, maxHeight: "12rem" }}>
+                  {statusDebug}
+                </pre>
+              )}
 
               {/* Connection status */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
