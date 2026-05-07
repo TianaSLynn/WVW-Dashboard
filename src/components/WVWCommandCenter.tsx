@@ -202,6 +202,7 @@ function OutputPanel({
   onClose: () => void;
   onCopy: () => void;
 }) {
+  const isMonthPlan = title.includes("Month");
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -209,7 +210,7 @@ function OutputPanel({
       exit={{ opacity: 0, y: 16 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1A1714]/60 backdrop-blur-sm"
     >
-      <div className="w-full max-w-2xl max-h-[80vh] flex flex-col rounded-3xl bg-[#F5F0E8] shadow-2xl overflow-hidden">
+      <div className={`w-full ${isMonthPlan ? "max-w-5xl" : "max-w-2xl"} max-h-[90vh] flex flex-col rounded-3xl bg-[#F5F0E8] shadow-2xl overflow-hidden`}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#DDD7CD]">
           <h3 className="font-serif text-lg font-semibold text-[#1A1714]">{title}</h3>
           <div className="flex gap-2">
@@ -227,10 +228,12 @@ function OutputPanel({
           {loading && !output && (
             <div className="flex items-center gap-2 text-[#3D3935] text-sm">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Generating…</span>
+              <span>Building your monthly content plan…</span>
             </div>
           )}
-          {output ? (
+          {output && isMonthPlan ? (
+            <MonthPlanDisplay raw={output} loading={loading} />
+          ) : output ? (
             <pre className="whitespace-pre-wrap text-sm leading-relaxed text-[#1A1714] font-sans">
               {output}
               {loading && <span className="animate-pulse">▌</span>}
@@ -383,9 +386,9 @@ export default function WVWCommandCenter() {
   const themeStream  = useStream();
   const wisdomStream = useStream();
   const monthStream  = useStream();
-  const [showMonthPlan, setShowMonthPlan] = useState(false);
-
-  const activeStream = modal?.title.includes("Theme") ? themeStream : wisdomStream;
+  const activeStream = modal?.title.includes("Theme") ? themeStream
+    : modal?.title.includes("Month") ? monthStream
+    : wisdomStream;
 
   // ── Fetch real content data ──
   useEffect(() => {
@@ -516,8 +519,8 @@ export default function WVWCommandCenter() {
   };
 
   const buildMonth = () => {
-    setShowMonthPlan(true);
     const month = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
+    setModal({ title: `Monthly Content Plan — ${month}` });
     monthStream.run("/api/generate/month-plan", { month });
   };
 
@@ -1081,52 +1084,6 @@ export default function WVWCommandCenter() {
                 </Card>
               )}
 
-              {/* Month Plan Panel */}
-              {showMonthPlan && (
-                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="font-serif text-xl flex items-center gap-2">
-                          <CalendarDays className="w-5 h-5" style={{ color: C.forest }} />
-                          Monthly Content Plan
-                        </CardTitle>
-                        <CardDescription style={{ color: C.charcoal }}>
-                          {monthStream.loading ? "Claude is building your plan…" : "Copy each week into your content tracker or Notion."}
-                        </CardDescription>
-                      </div>
-                      <div className="flex gap-2">
-                        {monthStream.output && (
-                          <button
-                            onClick={() => navigator.clipboard.writeText(monthStream.output).catch(() => {})}
-                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl"
-                            style={{ background: "#DDD7CD", color: C.charcoal }}
-                          >
-                            <Copy className="w-3 h-3" /> Copy All
-                          </button>
-                        )}
-                        <button
-                          onClick={() => { setShowMonthPlan(false); monthStream.clear(); }}
-                          className="p-1.5 rounded-xl hover:bg-[#EDE8DF]"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {monthStream.loading && !monthStream.output && (
-                      <div className="flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}>
-                        <Loader2 className="w-4 h-4 animate-spin" style={{ color: C.forest }} />
-                        Generating your {new Date().toLocaleString("en-US", { month: "long" })} content plan…
-                      </div>
-                    )}
-                    {monthStream.output && (
-                      <MonthPlanDisplay raw={monthStream.output} loading={monthStream.loading} />
-                    )}
-                  </CardContent>
-                </Card>
-              )}
             </TabsContent>
 
             {/* ── Unicorn Wisdoms ── */}
@@ -1417,8 +1374,9 @@ export default function WVWCommandCenter() {
                       <div className="space-y-2">
                         {["Ease, Power, Blackness", "Black Excellence", "The Brief"].map((s) => (
                           <button
+                            type="button"
                             key={s}
-                            onClick={() => setNlSeries(s)}
+                            onClick={() => { setNlSeries(s); setNlTheme(""); }}
                             className="w-full text-left px-4 py-2.5 rounded-2xl text-sm border transition-colors"
                             style={{
                               background: nlSeries === s ? C.forest : C.ivory,
@@ -1433,11 +1391,33 @@ export default function WVWCommandCenter() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <p className="text-xs font-medium" style={{ color: C.charcoal }}>Theme</p>
+                      <p className="text-xs font-medium" style={{ color: C.charcoal }}>Topic</p>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {(nlSeries === "Ease, Power, Blackness"
+                          ? ["Burnout vs moral injury", "Rest as radical resistance", "Invisible labor at work", "Black joy as survival strategy", "Neurodivergent leadership", "Soft ambition and standards"]
+                          : nlSeries === "Black Excellence"
+                          ? ["Black women carrying emotional labor", "Black brilliance in corporate spaces", "When excellence becomes extraction", "Redefining success on our terms", "Generational healing in leadership", "Black identity and organizational power"]
+                          : ["3 structural changes HR leaders need now", "The case for psychological safety", "Burnout metrics your org is ignoring", "What neurodivergent inclusion actually costs", "Fixing invisible labor in 30 days", "The rest ROI framework"]
+                        ).map((topic) => (
+                          <button
+                            type="button"
+                            key={topic}
+                            onClick={() => setNlTheme(topic)}
+                            className="text-xs px-3 py-1.5 rounded-full border transition-colors"
+                            style={{
+                              background: nlTheme === topic ? C.forest : C.ivory,
+                              color: nlTheme === topic ? C.bone : C.charcoal,
+                              borderColor: nlTheme === topic ? C.forest : "#DDD7CD",
+                            }}
+                          >
+                            {topic}
+                          </button>
+                        ))}
+                      </div>
                       <Input
                         value={nlTheme}
                         onChange={(e) => setNlTheme(e.target.value)}
-                        placeholder="e.g. rest as radical resistance"
+                        placeholder="Or type your own topic…"
                         className="rounded-2xl text-sm"
                         style={{ background: C.ivory, borderColor: "#DDD7CD" }}
                       />
