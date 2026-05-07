@@ -28,6 +28,8 @@ const PLATFORM_INSTRUCTIONS: Record<Platform, string> = {
     "Bluesky — 1-2 sentences. Structural truth or grounded observation. Under 260 characters. No hashtags. Feels like a quiet, precise thought.",
   facebook:
     "Facebook (WVW page) — 100-150 words. Community-facing. Invites reflection without being preachy. May end with a soft question. Professional but approachable.",
+  bluesky_personal:
+    "Bluesky personal (Tiána Lynn's personal account) — 1-3 sentences, written in first person as Tiána. Touches WVW themes lightly: Unicorn Wisdoms, Black experiences in neurodiversity, ADHD, rest, identity at work. Conversational, not corporate. Feels like a genuine thought, not a brand post. Under 280 characters. No hashtags.",
 };
 
 export type GeneratedPosts = Partial<Record<Platform, string>>;

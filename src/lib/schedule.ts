@@ -6,6 +6,7 @@ export type Platform =
   | "tiktok"
   | "twitter"
   | "bluesky"
+  | "bluesky_personal"
   | "facebook";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -33,6 +34,7 @@ export const POSTING_SCHEDULE: Record<Platform, Day[]> = {
   tiktok:            parseDays(process.env.POST_TIKTOK_DAYS,            ["Tue", "Thu"]),
   twitter:           parseDays(process.env.POST_TWITTER_DAYS,           ["Mon", "Tue", "Wed", "Thu", "Fri"]),
   bluesky:           parseDays(process.env.POST_BLUESKY_DAYS,           ["Mon", "Wed", "Fri"]),
+  bluesky_personal:  parseDays(process.env.POST_BLUESKY_PERSONAL_DAYS,  ["Tue", "Thu", "Sat"]),
   facebook:          parseDays(process.env.POST_FACEBOOK_DAYS,          ["Mon", "Wed", "Fri"]),
 };
 

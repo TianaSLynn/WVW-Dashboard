@@ -109,6 +109,18 @@ const defaultUnicornBank = [
 ];
 
 // ─── Types ────────────────────────────────────────────────────────
+interface RedditSignal {
+  theme: string;
+  source: string;
+  score: number;
+  comments: number;
+  momentum: string;
+  relevance: number;
+  action: string;
+  url: string;
+  age: number;
+}
+
 interface ContentItem {
   id: string;
   date: string;
@@ -353,6 +365,12 @@ export default function WVWCommandCenter() {
   const [postingLoading, setPostingLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [triggerResult, setTriggerResult] = useState<string | null>(null);
+  const [redditSignals, setRedditSignals] = useState<RedditSignal[]>([]);
+  const [redditLoading, setRedditLoading] = useState(true);
+  const [redditFetchedAt, setRedditFetchedAt] = useState<string | null>(null);
+  const [monthPlanData, setMonthPlanData] = useState<Record<string, unknown> | null>(null);
+  const [monthPlanLoading, setMonthPlanLoading] = useState(false);
+  const [monthPlanOpen, setMonthPlanOpen] = useState(false);
 
   // ── Substack state ──
   const [ssTheme, setSsTheme] = useState("");
@@ -385,10 +403,7 @@ export default function WVWCommandCenter() {
 
   const themeStream  = useStream();
   const wisdomStream = useStream();
-  const monthStream  = useStream();
-  const activeStream = modal?.title.includes("Theme") ? themeStream
-    : modal?.title.includes("Month") ? monthStream
-    : wisdomStream;
+  const activeStream = modal?.title.includes("Theme") ? themeStream : wisdomStream;
 
   // ── Fetch real content data ──
   useEffect(() => {
@@ -414,6 +429,17 @@ export default function WVWCommandCenter() {
       .then((d: PostingStatus) => setPostingStatus(d))
       .catch(() => {})
       .finally(() => setPostingLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/reddit")
+      .then((r) => r.json())
+      .then((d: { signals: RedditSignal[]; fetchedAt: string }) => {
+        setRedditSignals(d.signals ?? []);
+        setRedditFetchedAt(d.fetchedAt ?? null);
+      })
+      .catch(() => {})
+      .finally(() => setRedditLoading(false));
   }, []);
 
   const triggerPosting = async () => {
@@ -518,10 +544,24 @@ export default function WVWCommandCenter() {
     setModal(null);
   };
 
-  const buildMonth = () => {
-    const month = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
-    setModal({ title: `Monthly Content Plan — ${month}` });
-    monthStream.run("/api/generate/month-plan", { month });
+  const buildMonth = async () => {
+    setMonthPlanLoading(true);
+    setMonthPlanOpen(true);
+    setMonthPlanData(null);
+    try {
+      const month = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
+      const res = await fetch("/api/generate/month-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month }),
+      });
+      const data = await res.json() as Record<string, unknown>;
+      setMonthPlanData(data);
+    } catch {
+      setMonthPlanData({ error: "Generation failed" });
+    } finally {
+      setMonthPlanLoading(false);
+    }
   };
 
   const copyOutput = () => {
@@ -560,6 +600,42 @@ export default function WVWCommandCenter() {
             onClose={closeModal}
             onCopy={copyOutput}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {monthPlanOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1A1714]/60 backdrop-blur-sm"
+          >
+            <div className="w-full max-w-5xl max-h-[90vh] flex flex-col rounded-3xl shadow-2xl overflow-hidden" style={{ background: "#F5F0E8" }}>
+              <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "#DDD7CD" }}>
+                <h3 className="font-serif text-lg font-semibold" style={{ color: "#1A1714" }}>
+                  Monthly Content Plan — {new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}
+                </h3>
+                <button type="button" title="Close" onClick={() => setMonthPlanOpen(false)} className="p-1.5 rounded-xl hover:bg-[#EDE8DF]">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                {monthPlanLoading && (
+                  <div className="flex items-center gap-2 text-sm" style={{ color: "#3D3935" }}>
+                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#1C3A2A" }} />
+                    Building your content plan…
+                  </div>
+                )}
+                {monthPlanData && !("error" in monthPlanData) && (
+                  <MonthPlanDisplay raw={JSON.stringify(monthPlanData)} loading={false} />
+                )}
+                {monthPlanData && "error" in monthPlanData && (
+                  <p className="text-sm" style={{ color: "#C4A09A" }}>Generation failed — try again.</p>
+                )}
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -671,7 +747,10 @@ export default function WVWCommandCenter() {
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <Card className="xl:col-span-2 rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                   <CardHeader>
-                    <CardTitle className="font-serif text-xl">Growth + Performance Trend</CardTitle>
+                    <CardTitle className="font-serif text-xl flex items-center gap-2">
+                      Growth + Performance Trend
+                      <span className="text-xs px-2 py-0.5 rounded-full font-normal" style={{ background: C.gold + "33", color: C.charcoal }}>DEMO DATA</span>
+                    </CardTitle>
                     <CardDescription style={{ color: C.charcoal }}>Engagement, leads, and newsletter growth over time.</CardDescription>
                   </CardHeader>
                   <CardContent className="h-[300px]">
@@ -717,7 +796,10 @@ export default function WVWCommandCenter() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card className="rounded-3xl lg:col-span-2 shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                   <CardHeader>
-                    <CardTitle className="font-serif text-xl">Content Pillar Strength</CardTitle>
+                    <CardTitle className="font-serif text-xl flex items-center gap-2">
+                      Content Pillar Strength
+                      <span className="text-xs px-2 py-0.5 rounded-full font-normal" style={{ background: C.gold + "33", color: C.charcoal }}>DEMO DATA</span>
+                    </CardTitle>
                     <CardDescription style={{ color: C.charcoal }}>What your audience responds to most.</CardDescription>
                   </CardHeader>
                   <CardContent className="h-[280px]">
@@ -736,14 +818,16 @@ export default function WVWCommandCenter() {
                 <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                   <CardHeader>
                     <CardTitle className="font-serif text-xl">Today&apos;s CEO Focus</CardTitle>
-                    <CardDescription style={{ color: C.charcoal }}>Immediate priorities based on live signals.</CardDescription>
+                    <CardDescription style={{ color: C.charcoal }}>
+                      Strategic priorities based on today&apos;s theme, schedule, and platform activity. Use these to direct your morning work session.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {[
-                      "Repurpose burnout vs moral injury into all-platform content stack",
-                      "Promote Ease, Power, Blackness as current newsletter lead",
-                      "Increase TikTok/IG short-form from top LinkedIn essays",
-                      "Build this month's Unicorn Wisdom pack and auto-queue it",
+                      postingStatus ? `Today's theme: ${postingStatus.todayTheme} — generate posts for ${postingStatus.todayPlatforms.length} platform${postingStatus.todayPlatforms.length !== 1 ? "s" : ""}` : "Check today's theme in the Auto-Post tab",
+                      "Pull this week's Reddit signal and match it to a content format",
+                      "Generate and schedule this week's newsletter if not already queued",
+                      "Check post log for any errors from the last cron run",
                     ].map((task) => (
                       <div
                         key={task}
@@ -763,7 +847,10 @@ export default function WVWCommandCenter() {
             <TabsContent value="socials" className="space-y-4">
               <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                 <CardHeader>
-                  <CardTitle className="font-serif text-xl">Platform Performance</CardTitle>
+                  <CardTitle className="font-serif text-xl flex items-center gap-2">
+                    Platform Performance
+                    <span className="text-xs px-2 py-0.5 rounded-full font-normal" style={{ background: C.gold + "33", color: C.charcoal }}>DEMO DATA</span>
+                  </CardTitle>
                   <CardDescription style={{ color: C.charcoal }}>Cross-platform growth, engagement, posts, and lead value.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -824,30 +911,47 @@ export default function WVWCommandCenter() {
                 <Card className="xl:col-span-2 rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                   <CardHeader>
                     <CardTitle className="font-serif text-xl">Top Niche Signals</CardTitle>
-                    <CardDescription style={{ color: C.charcoal }}>Reddit, comments, and audience language patterns driving WVW opportunities.</CardDescription>
+                    <CardDescription style={{ color: C.charcoal }}>Live Reddit signals from r/humanresources, r/blackmentalhealth, r/ADHD, r/neurodivergent, r/burnout, r/nonprofit — updated hourly.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {topThemes.map((theme) => (
-                      <div
-                        key={theme.theme}
-                        className="p-4 rounded-2xl border flex flex-col md:flex-row md:items-center md:justify-between gap-3"
-                        style={{ borderColor: "#DDD7CD" }}
-                      >
-                        <div>
-                          <p className="font-medium text-sm">{theme.theme}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs" style={{ color: C.charcoal }}>{theme.source}</span>
-                            <MomentumBadge level={theme.momentum} />
-                          </div>
-                        </div>
-                        <span
-                          className="text-xs px-3 py-1.5 rounded-full border shrink-0"
-                          style={{ borderColor: C.gold, color: C.charcoal }}
-                        >
-                          {theme.action}
-                        </span>
+                    {redditLoading ? (
+                      <div className="flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}>
+                        <Loader2 className="w-4 h-4 animate-spin" style={{ color: C.forest }} />
+                        Pulling live Reddit signals…
                       </div>
-                    ))}
+                    ) : redditSignals.length === 0 ? (
+                      <p className="text-sm py-4" style={{ color: C.charcoal }}>No signals loaded. Refresh to retry.</p>
+                    ) : (
+                      redditSignals.slice(0, 8).map((signal, i) => (
+                        <div
+                          key={i}
+                          className="p-4 rounded-2xl border flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                          style={{ borderColor: "#DDD7CD" }}
+                        >
+                          <div className="flex-1">
+                            <a href={signal.url} target="_blank" rel="noopener noreferrer" className="font-medium text-sm hover:underline" style={{ color: C.warmBlack }}>
+                              {signal.theme}
+                            </a>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="text-xs" style={{ color: C.charcoal }}>{signal.source}</span>
+                              <span className="text-xs" style={{ color: C.charcoal }}>· ↑{signal.score} · {signal.comments} comments · {signal.age}h ago</span>
+                              <MomentumBadge level={signal.momentum} />
+                            </div>
+                          </div>
+                          <span
+                            className="text-xs px-3 py-1.5 rounded-full border shrink-0"
+                            style={{ borderColor: C.gold, color: C.charcoal }}
+                          >
+                            {signal.action}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                    {redditFetchedAt && (
+                      <p className="text-xs pt-2" style={{ color: C.charcoal }}>
+                        Live · refreshes hourly · last pulled {new Date(redditFetchedAt).toLocaleTimeString()}
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -994,9 +1098,9 @@ export default function WVWCommandCenter() {
                         className="rounded-2xl text-sm"
                         style={{ borderColor: C.gold, color: C.charcoal }}
                         onClick={buildMonth}
-                        disabled={monthStream.loading}
+                        disabled={monthPlanLoading}
                       >
-                        {monthStream.loading
+                        {monthPlanLoading
                           ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Building…</>
                           : <><CalendarDays className="w-4 h-4 mr-2" /> Build Month</>
                         }
@@ -1159,9 +1263,9 @@ export default function WVWCommandCenter() {
             <TabsContent value="autopost" className="space-y-4">
 
               {/* Connection status */}
-              <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {postingLoading ? (
-                  <div className="col-span-3 flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}>
+                  <div className="col-span-5 flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}>
                     <Loader2 className="w-4 h-4 animate-spin" style={{ color: C.forest }} />
                     Checking connections…
                   </div>
@@ -1172,6 +1276,7 @@ export default function WVWCommandCenter() {
                     { label: "LinkedIn WVW Page", key: "linkedin_org" },
                     { label: "X / Twitter",       key: "twitter" },
                     { label: "Bluesky",           key: "bluesky" },
+                    { label: "Bluesky Personal",  key: "bluesky_personal" },
                     { label: "Facebook WVW",      key: "facebook" },
                     { label: "Instagram (Meta)",  key: "instagram" },
                     { label: "Threads",           key: "threads" },

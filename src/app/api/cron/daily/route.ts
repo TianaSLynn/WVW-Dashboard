@@ -6,7 +6,7 @@ import type { Platform } from "@/lib/schedule";
 import { generateDailyPosts } from "@/lib/generate-posts";
 import { postToLinkedIn } from "@/lib/linkedin";
 import { postToTwitter } from "@/lib/twitter";
-import { postToBluesky } from "@/lib/bluesky";
+import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { postToFacebook, postToInstagram, postToInstagramCarousel, postToThreads } from "@/lib/facebook";
 import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
@@ -95,6 +95,15 @@ export async function GET(req: NextRequest) {
       log("bluesky", posts.bluesky, { status: "skipped", error: "Bluesky not configured" });
     } else {
       log("bluesky", posts.bluesky, await run("bluesky", () => postToBluesky(posts.bluesky!)));
+    }
+  }
+
+  // ── Bluesky Personal ──
+  if (platforms.includes("bluesky_personal") && posts.bluesky_personal) {
+    if (!process.env.BLUESKY_PERSONAL_IDENTIFIER) {
+      log("bluesky_personal", posts.bluesky_personal, { status: "skipped", error: "Personal Bluesky not configured" });
+    } else {
+      log("bluesky_personal", posts.bluesky_personal, await run("bluesky_personal", () => postToBlueskyPersonal(posts.bluesky_personal!)));
     }
   }
 
