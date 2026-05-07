@@ -815,6 +815,7 @@ export default function WVWCommandCenter() {
                 { value: "experiments",   label: "Experiments"  },
                 { value: "repurpose",     label: "Repurpose"    },
                 { value: "reports",       label: "Reports"      },
+                { value: "settings",      label: "Settings"     },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -2173,6 +2174,160 @@ export default function WVWCommandCenter() {
                 <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Illustrative data — reports will reflect real numbers once analytics are connected</span>
               </div>
               <ReportsSection posts={samplePosts} conversions={sampleConversions} interactions={sampleInteractions} />
+            </TabsContent>
+
+            {/* ── Settings ── */}
+            <TabsContent value="settings" className="space-y-4">
+              {/* Platform connection status */}
+              <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                <CardHeader>
+                  <CardTitle className="font-serif text-xl">Platform Connections</CardTitle>
+                  <CardDescription style={{ color: C.charcoal }}>
+                    All credentials live in Vercel → Settings → Environment Variables. Hard-refresh after adding any new variable.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {[
+                    {
+                      platform: "LinkedIn Personal + WVW",
+                      keys: ["LINKEDIN_ACCESS_TOKEN", "LINKEDIN_PERSON_URN", "LINKEDIN_ORG_URN"],
+                      postStatus: postingStatus?.connections.linkedin_token && postingStatus?.connections.linkedin_person,
+                      note: "Token expires every 60 days — re-auth at /api/auth/linkedin",
+                      analyticsNote: "Add r_organization_social scope to pull live follower + engagement data",
+                    },
+                    {
+                      platform: "Bluesky WVW + Personal",
+                      keys: ["BLUESKY_IDENTIFIER", "BLUESKY_APP_PASSWORD", "BLUESKY_PERSONAL_IDENTIFIER", "BLUESKY_PERSONAL_APP_PASSWORD"],
+                      postStatus: postingStatus?.connections.bluesky && postingStatus?.connections.bluesky_personal,
+                      note: "App passwords never expire — generate at bsky.app → Settings → App Passwords",
+                      analyticsNote: "No analytics API yet — Bluesky protocol still building this",
+                    },
+                    {
+                      platform: "Facebook WVW Page",
+                      keys: ["FACEBOOK_PAGE_ACCESS_TOKEN", "FACEBOOK_PAGE_ID"],
+                      postStatus: postingStatus?.connections.facebook,
+                      note: "Long-lived token (60 days) — renew via Meta Graph API Explorer",
+                      analyticsNote: "Add pages_read_engagement scope to pull reach + follower data",
+                    },
+                    {
+                      platform: "Instagram Business",
+                      keys: ["INSTAGRAM_BUSINESS_ACCOUNT_ID"],
+                      postStatus: postingStatus?.connections.instagram,
+                      note: "Uses same FACEBOOK_PAGE_ACCESS_TOKEN — account must be Business type",
+                      analyticsNote: "Add instagram_manage_insights scope for impressions + reach",
+                    },
+                    {
+                      platform: "Threads",
+                      keys: ["THREADS_ACCESS_TOKEN", "THREADS_USER_ID"],
+                      postStatus: postingStatus?.connections.threads,
+                      note: "Generate via developers.facebook.com → your Threads app",
+                      analyticsNote: "Add threads_manage_insights scope for Threads analytics",
+                    },
+                    {
+                      platform: "Twitter / X",
+                      keys: ["TWITTER_API_KEY", "TWITTER_API_SECRET", "TWITTER_ACCESS_TOKEN", "TWITTER_ACCESS_SECRET"],
+                      postStatus: postingStatus?.connections.twitter,
+                      note: "OAuth 1.0a — generate at developer.twitter.com → Your App → Keys and Tokens",
+                      analyticsNote: "Free tier: tweet metrics only. Basic tier ($100/mo): full analytics",
+                    },
+                    {
+                      platform: "TikTok (via Buffer)",
+                      keys: ["BUFFER_ACCESS_TOKEN", "BUFFER_PROFILE_TIKTOK"],
+                      postStatus: postingStatus?.connections.tiktok_buffer,
+                      note: "Connect TikTok to Buffer → get API token at buffer.com/developers",
+                      analyticsNote: "TikTok analytics available via TikTok Business API (separate setup)",
+                    },
+                    {
+                      platform: "Supabase (post log + calendar + blog)",
+                      keys: ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
+                      postStatus: !!(postingStatus?.recentPosts !== undefined),
+                      note: "Project: xsrcvtpbrhuiymxyxwkf — get keys at supabase.com → project → Settings → API",
+                      analyticsNote: "Required for calendar, recent post log, and blog publishing to work",
+                    },
+                  ].map((item) => (
+                    <div key={item.platform} className="p-4 rounded-2xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }}>
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2">
+                          {item.postStatus
+                            ? <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: C.forest }} />
+                            : <AlertCircle className="w-4 h-4 shrink-0" style={{ color: C.rose }} />
+                          }
+                          <span className="font-medium text-sm">{item.platform}</span>
+                        </div>
+                        <span className="text-xs px-2 py-0.5 rounded-full shrink-0" style={{
+                          background: item.postStatus ? C.forest + "22" : C.rose + "22",
+                          color: item.postStatus ? C.forest : C.rose,
+                        }}>
+                          {item.postStatus ? "Connected" : "Not configured"}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.keys.map((k) => (
+                            <code key={k} className="text-[10px] px-2 py-0.5 rounded-lg font-mono" style={{ background: C.bone, color: C.charcoal }}>
+                              {k}
+                            </code>
+                          ))}
+                        </div>
+                        <p className="text-xs" style={{ color: C.charcoal }}>{item.note}</p>
+                        <p className="text-xs italic" style={{ color: C.sage }}>Analytics: {item.analyticsNote}</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Cron schedule */}
+              <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                <CardHeader>
+                  <CardTitle className="font-serif text-xl">Cron Schedule</CardTitle>
+                  <CardDescription style={{ color: C.charcoal }}>Configured in vercel.json — all times UTC.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {[
+                    { name: "Unicorn Wisdom", schedule: "Daily 9am ET (14:00 UTC)", path: "/api/cron/wisdom", note: "Posts to all 6 connected socials" },
+                    { name: "Daily Content",  schedule: "Daily 12pm ET (17:00 UTC)", path: "/api/cron/daily", note: "Posts platform-specific content based on schedule" },
+                    { name: "Newsletter",     schedule: "Mon / Wed / Fri 1pm ET (18:00 UTC)", path: "/api/cron/newsletter", note: "Sends Beehiiv draft if configured" },
+                  ].map((cron) => (
+                    <div key={cron.name} className="flex items-start justify-between p-3 rounded-2xl gap-4" style={{ background: C.ivory }}>
+                      <div>
+                        <p className="text-sm font-medium">{cron.name}</p>
+                        <p className="text-xs mt-0.5" style={{ color: C.charcoal }}>{cron.note}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-medium" style={{ color: C.forest }}>{cron.schedule}</p>
+                        <code className="text-[10px] font-mono" style={{ color: C.charcoal }}>{cron.path}</code>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Posting schedule */}
+              <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                <CardHeader>
+                  <CardTitle className="font-serif text-xl">What Goes Live When Analytics Are Connected</CardTitle>
+                  <CardDescription style={{ color: C.charcoal }}>These dashboard sections will show real data once the scopes below are added to each platform token.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm" style={{ color: C.charcoal }}>
+                  {[
+                    { section: "KPI Row (Audience, Engagement)", what: "LinkedIn + Instagram follower count, cross-platform avg engagement" },
+                    { section: "Socials → Platform Performance table", what: "Live follower count, reach, CTR per platform" },
+                    { section: "Overview → Growth Trend chart", what: "Real month-by-month engagement and lead tracking" },
+                    { section: "Performance + Intelligence tabs", what: "Actual post-level analytics replacing sample data" },
+                    { section: "Calendar", what: "Already live once SUPABASE_URL and SUPABASE_ANON_KEY are in Vercel" },
+                    { section: "Recent Posts log", what: "Already live once SUPABASE_URL and SUPABASE_ANON_KEY are in Vercel" },
+                  ].map((row) => (
+                    <div key={row.section} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: C.ivory }}>
+                      <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: C.gold }} />
+                      <div>
+                        <p className="font-medium text-xs" style={{ color: C.warmBlack }}>{row.section}</p>
+                        <p className="text-xs">{row.what}</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
             </TabsContent>
 
           </Tabs>
