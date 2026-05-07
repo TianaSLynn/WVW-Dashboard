@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     response_type: "code",
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: "openid profile w_member_social",
+    scope: "openid profile w_member_social w_organization_social",
     state: crypto.randomUUID(),
   });
 
