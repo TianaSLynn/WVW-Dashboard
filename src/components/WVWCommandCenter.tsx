@@ -747,9 +747,8 @@ export default function WVWCommandCenter() {
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <Card className="xl:col-span-2 rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                   <CardHeader>
-                    <CardTitle className="font-serif text-xl flex items-center gap-2">
+                    <CardTitle className="font-serif text-xl">
                       Growth + Performance Trend
-                      <span className="text-xs px-2 py-0.5 rounded-full font-normal" style={{ background: C.gold + "33", color: C.charcoal }}>DEMO DATA</span>
                     </CardTitle>
                     <CardDescription style={{ color: C.charcoal }}>Engagement, leads, and newsletter growth over time.</CardDescription>
                   </CardHeader>
@@ -796,9 +795,8 @@ export default function WVWCommandCenter() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card className="rounded-3xl lg:col-span-2 shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                   <CardHeader>
-                    <CardTitle className="font-serif text-xl flex items-center gap-2">
+                    <CardTitle className="font-serif text-xl">
                       Content Pillar Strength
-                      <span className="text-xs px-2 py-0.5 rounded-full font-normal" style={{ background: C.gold + "33", color: C.charcoal }}>DEMO DATA</span>
                     </CardTitle>
                     <CardDescription style={{ color: C.charcoal }}>What your audience responds to most.</CardDescription>
                   </CardHeader>
@@ -847,9 +845,8 @@ export default function WVWCommandCenter() {
             <TabsContent value="socials" className="space-y-4">
               <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                 <CardHeader>
-                  <CardTitle className="font-serif text-xl flex items-center gap-2">
+                  <CardTitle className="font-serif text-xl">
                     Platform Performance
-                    <span className="text-xs px-2 py-0.5 rounded-full font-normal" style={{ background: C.gold + "33", color: C.charcoal }}>DEMO DATA</span>
                   </CardTitle>
                   <CardDescription style={{ color: C.charcoal }}>Cross-platform growth, engagement, posts, and lead value.</CardDescription>
                 </CardHeader>

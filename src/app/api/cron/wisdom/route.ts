@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { generateWisdoms } from "@/lib/generate-posts";
 import { postToLinkedIn } from "@/lib/linkedin";
-import { postToFacebook } from "@/lib/facebook";
-import { postToBlueskyPersonal } from "@/lib/bluesky";
+import { postToFacebook, postToThreads } from "@/lib/facebook";
+import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { appendPostLog } from "@/lib/logger";
 
 export const maxDuration = 60;
@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Generate a single fresh wisdom for today
   let wisdoms: string[];
   try {
     wisdoms = await generateWisdoms(1);
@@ -61,6 +60,20 @@ export async function GET(req: NextRequest) {
     results.facebook = { status: "skipped", error: "Facebook not configured" };
   }
 
+  // ── Threads ──
+  if (process.env.THREADS_ACCESS_TOKEN && process.env.THREADS_USER_ID) {
+    results.threads = await run(() => postToThreads(wisdom));
+  } else {
+    results.threads = { status: "skipped", error: "Threads not configured" };
+  }
+
+  // ── Bluesky WVW ──
+  if (process.env.BLUESKY_IDENTIFIER && process.env.BLUESKY_APP_PASSWORD) {
+    results.bluesky_wvw = await run(() => postToBluesky(wisdom));
+  } else {
+    results.bluesky_wvw = { status: "skipped", error: "Bluesky WVW not configured" };
+  }
+
   // ── Bluesky Personal ──
   if (process.env.BLUESKY_PERSONAL_IDENTIFIER && process.env.BLUESKY_PERSONAL_APP_PASSWORD) {
     results.bluesky_personal = await run(() => postToBlueskyPersonal(wisdom));
@@ -68,7 +81,6 @@ export async function GET(req: NextRequest) {
     results.bluesky_personal = { status: "skipped", error: "Personal Bluesky not configured" };
   }
 
-  // Log each result
   Object.entries(results).forEach(([platform, r]) => {
     appendPostLog({ platform, theme: "Unicorn Wisdom", text: wisdom, status: r.status as "posted" | "queued" | "error" | "skipped" });
   });
