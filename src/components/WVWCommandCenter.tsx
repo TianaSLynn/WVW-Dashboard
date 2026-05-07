@@ -35,6 +35,15 @@ import {
   Zap,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import ContentPerformanceTable from "@/components/dashboard/ContentPerformanceTable";
+import AIInsightsPanel        from "@/components/dashboard/AIInsightsPanel";
+import AudienceInsights       from "@/components/dashboard/AudienceInsights";
+import CommunityLeads         from "@/components/dashboard/CommunityLeads";
+import ConversionEngine       from "@/components/dashboard/ConversionEngine";
+import ExperimentBoard        from "@/components/dashboard/ExperimentBoard";
+import RepurposingEngine      from "@/components/dashboard/RepurposingEngine";
+import ReportsSection         from "@/components/dashboard/ReportsSection";
+import { samplePosts, sampleAudience, sampleInteractions, sampleConversions, sampleExperiments } from "@/data/sampleData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -764,19 +773,27 @@ export default function WVWCommandCenter() {
           {/* ── Tabs ── */}
           <Tabs defaultValue="overview" className="space-y-4">
             <TabsList
-              className="grid grid-cols-5 md:grid-cols-9 rounded-2xl p-1"
+              className="flex flex-wrap gap-1 h-auto rounded-2xl p-1.5"
               style={{ background: C.bone, border: `1px solid #DDD7CD` }}
             >
               {[
-                { value: "overview",    label: "Overview" },
-                { value: "socials",     label: "Socials" },
-                { value: "insights",    label: "Trends" },
-                { value: "newsletters", label: "Newsletters" },
-                { value: "content",     label: "Content" },
-                { value: "wisdom",      label: "Wisdoms" },
-                { value: "autopost",    label: "Auto-Post" },
-                { value: "publish",     label: "Publish" },
-                { value: "calendar",    label: "Calendar" },
+                { value: "overview",      label: "Overview"     },
+                { value: "socials",       label: "Socials"      },
+                { value: "insights",      label: "Trends"       },
+                { value: "newsletters",   label: "Newsletters"  },
+                { value: "content",       label: "Content"      },
+                { value: "wisdom",        label: "Wisdoms"      },
+                { value: "autopost",      label: "Auto-Post"    },
+                { value: "publish",       label: "Publish"      },
+                { value: "calendar",      label: "Calendar"     },
+                { value: "performance",   label: "Performance"  },
+                { value: "intelligence",  label: "Intelligence" },
+                { value: "audience",      label: "Audience"     },
+                { value: "community",     label: "Community"    },
+                { value: "conversions",   label: "Conversions"  },
+                { value: "experiments",   label: "Experiments"  },
+                { value: "repurpose",     label: "Repurpose"    },
+                { value: "reports",       label: "Reports"      },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -2037,6 +2054,46 @@ export default function WVWCommandCenter() {
                   })()}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* ── Performance ── */}
+            <TabsContent value="performance" className="space-y-4">
+              <ContentPerformanceTable posts={samplePosts} />
+            </TabsContent>
+
+            {/* ── Intelligence ── */}
+            <TabsContent value="intelligence" className="space-y-4">
+              <AIInsightsPanel posts={samplePosts} />
+            </TabsContent>
+
+            {/* ── Audience ── */}
+            <TabsContent value="audience" className="space-y-4">
+              <AudienceInsights insights={sampleAudience} />
+            </TabsContent>
+
+            {/* ── Community ── */}
+            <TabsContent value="community" className="space-y-4">
+              <CommunityLeads interactions={sampleInteractions} />
+            </TabsContent>
+
+            {/* ── Conversions ── */}
+            <TabsContent value="conversions" className="space-y-4">
+              <ConversionEngine conversions={sampleConversions} />
+            </TabsContent>
+
+            {/* ── Experiments ── */}
+            <TabsContent value="experiments" className="space-y-4">
+              <ExperimentBoard experiments={sampleExperiments} />
+            </TabsContent>
+
+            {/* ── Repurpose ── */}
+            <TabsContent value="repurpose" className="space-y-4">
+              <RepurposingEngine posts={samplePosts} />
+            </TabsContent>
+
+            {/* ── Reports ── */}
+            <TabsContent value="reports" className="space-y-4">
+              <ReportsSection posts={samplePosts} conversions={sampleConversions} interactions={sampleInteractions} />
             </TabsContent>
 
           </Tabs>

@@ -52,7 +52,7 @@ Return ONLY valid JSON — no markdown fences, no preamble, no explanation. Star
 Produce 4 complete weeks. Each week must have 6–8 posts across LinkedIn Personal, LinkedIn WVW, Instagram, Threads, Twitter, Facebook, Bluesky. Make angles specific and WVW-branded — never generic.`;
 
   const msg = await client.messages.create({
-    model: "claude-opus-4-6",
+    model: "claude-sonnet-4-6",
     max_tokens: 4000,
     system: SYSTEM,
     messages: [{ role: "user", content: prompt }],
