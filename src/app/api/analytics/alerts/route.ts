@@ -110,5 +110,8 @@ export async function GET() {
     });
   }
 
-  return Response.json({ alerts: alerts.slice(0, 8), timestamp: new Date().toISOString() });
+  return Response.json(
+    { alerts: alerts.slice(0, 8), timestamp: new Date().toISOString() },
+    { headers: { "Cache-Control": "no-store", "CDN-Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "no-store" } }
+  );
 }

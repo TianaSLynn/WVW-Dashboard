@@ -34,6 +34,10 @@ export async function GET() {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate",
         "Pragma": "no-cache",
+        // Explicitly bust Vercel's edge cache — prevents the 4+ day CDN cache issue
+        "CDN-Cache-Control": "no-store",
+        "Surrogate-Control": "no-store",
+        "Vercel-CDN-Cache-Control": "no-store",
       },
     }
   );

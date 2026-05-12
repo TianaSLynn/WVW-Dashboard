@@ -19,6 +19,9 @@ const CONTENT_PILLARS = [
   "Burnout / Moral Injury",
   "CEO / BTS",
   "Unicorn Wisdoms",
+  "WVW Academy",
+  "Rest as Strategy",
+  "Invisible Labor",
 ];
 
 function parseDays(env: string | undefined, fallback: Day[]): Day[] {
@@ -26,16 +29,24 @@ function parseDays(env: string | undefined, fallback: Day[]): Day[] {
   return env.split(",").map((d) => d.trim() as Day);
 }
 
+// Research-backed 2026 frequencies:
+// LinkedIn: 5-6x/week (best reach Mon-Sat, avoid Sunday)
+// Threads: daily (algorithm rewards consistency; treat like Twitter volume)
+// Twitter/X: daily including weekends (high-volume platform, 1-3x/day ideal)
+// Bluesky: daily (fast-growing professional audience; daily presence compounds)
+// Facebook: 5x/week (Mon-Fri for B2B; weekend drops off for org buyers)
+// Instagram: 4-5x/week (quality > quantity; algorithm favors saves + shares)
+// TikTok: 4-5x/week (Mon-Fri; B2B content peaks midweek)
 export const POSTING_SCHEDULE: Record<Platform, Day[]> = {
-  linkedin_personal: parseDays(process.env.POST_LINKEDIN_PERSONAL_DAYS, ["Mon", "Tue", "Wed", "Thu", "Fri"]),
-  linkedin_wvw:      parseDays(process.env.POST_LINKEDIN_WVW_DAYS,      ["Mon", "Wed", "Fri"]),
-  instagram:         parseDays(process.env.POST_INSTAGRAM_DAYS,         ["Mon", "Wed", "Fri"]),
-  threads:           parseDays(process.env.POST_THREADS_DAYS,           ["Mon", "Tue", "Wed", "Thu", "Fri"]),
-  tiktok:            parseDays(process.env.POST_TIKTOK_DAYS,            ["Tue", "Thu"]),
-  twitter:           parseDays(process.env.POST_TWITTER_DAYS,           ["Mon", "Tue", "Wed", "Thu", "Fri"]),
-  bluesky:           parseDays(process.env.POST_BLUESKY_DAYS,           ["Mon", "Wed", "Fri"]),
-  bluesky_personal:  parseDays(process.env.POST_BLUESKY_PERSONAL_DAYS,  ["Tue", "Thu", "Sat"]),
-  facebook:          parseDays(process.env.POST_FACEBOOK_DAYS,          ["Mon", "Wed", "Fri"]),
+  linkedin_personal: parseDays(process.env.POST_LINKEDIN_PERSONAL_DAYS, ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]),
+  linkedin_wvw:      parseDays(process.env.POST_LINKEDIN_WVW_DAYS,      ["Mon", "Tue", "Wed", "Thu", "Fri"]),
+  instagram:         parseDays(process.env.POST_INSTAGRAM_DAYS,         ["Mon", "Tue", "Wed", "Thu", "Fri"]),
+  threads:           parseDays(process.env.POST_THREADS_DAYS,           ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]),
+  tiktok:            parseDays(process.env.POST_TIKTOK_DAYS,            ["Mon", "Tue", "Wed", "Thu", "Fri"]),
+  twitter:           parseDays(process.env.POST_TWITTER_DAYS,           ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]),
+  bluesky:           parseDays(process.env.POST_BLUESKY_DAYS,           ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]),
+  bluesky_personal:  parseDays(process.env.POST_BLUESKY_PERSONAL_DAYS,  ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]),
+  facebook:          parseDays(process.env.POST_FACEBOOK_DAYS,          ["Mon", "Tue", "Wed", "Thu", "Fri"]),
 };
 
 export function getTodayPlatforms(): Platform[] {

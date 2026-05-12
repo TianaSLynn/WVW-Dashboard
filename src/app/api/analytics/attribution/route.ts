@@ -55,5 +55,8 @@ export async function GET() {
     .sort((a, b) => b.leads - a.leads)
     .slice(0, 10);
 
-  return Response.json({ topThemes, topPlatforms, totalPosts: posts.length, totalLeads: leads.length });
+  return Response.json(
+    { topThemes, topPlatforms, totalPosts: posts.length, totalLeads: leads.length },
+    { headers: { "Cache-Control": "no-store", "CDN-Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "no-store" } }
+  );
 }

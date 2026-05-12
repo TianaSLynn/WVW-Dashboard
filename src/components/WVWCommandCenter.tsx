@@ -545,8 +545,10 @@ export default function WVWCommandCenter() {
     setLeadsLoading(true);
     fetch("/api/leads", { cache: "no-store" })
       .then((r) => r.json())
-      .then((rows: Array<{ id: string; date: string; platform: string; interaction_type: string; user_name: string; message_summary: string; lead_flag: boolean; follow_up_needed: boolean; follow_up_status: string; related_content: string; notes: string }>) => {
-        setRealLeads(rows.map((r) => ({
+      .then((rows: unknown) => {
+        if (!Array.isArray(rows)) return;
+        const typed = rows as Array<{ id: string; date: string; platform: string; interaction_type: string; user_name: string; message_summary: string; lead_flag: boolean; follow_up_needed: boolean; follow_up_status: string; related_content: string; notes: string }>;
+        setRealLeads(typed.map((r) => ({
           id: r.id,
           date: r.date,
           platform: r.platform as CommunityInteraction["platform"],
@@ -569,7 +571,7 @@ export default function WVWCommandCenter() {
   useEffect(() => {
     fetch("/api/social-stats", { cache: "no-store" })
       .then((r) => r.json())
-      .then((rows: StatRow[]) => setRealStats(rows))
+      .then((rows: unknown) => { if (Array.isArray(rows)) setRealStats(rows as StatRow[]); })
       .catch(() => {});
   }, []);
 
@@ -578,7 +580,7 @@ export default function WVWCommandCenter() {
     setQueueLoading(true);
     fetch("/api/queue", { cache: "no-store" })
       .then((r) => r.json())
-      .then((rows: QueueItem[]) => setQueue(rows))
+      .then((rows: unknown) => { if (Array.isArray(rows)) setQueue(rows as QueueItem[]); })
       .catch(() => {})
       .finally(() => setQueueLoading(false));
   };
@@ -604,7 +606,7 @@ export default function WVWCommandCenter() {
   const fetchConversions = () => {
     fetch("/api/conversions", { cache: "no-store" })
       .then((r) => r.json())
-      .then((rows: RealConversion[]) => setRealConversions(rows))
+      .then((rows: unknown) => { if (Array.isArray(rows)) setRealConversions(rows as RealConversion[]); })
       .catch(() => {});
   };
   useEffect(fetchConversions, []);
@@ -876,14 +878,18 @@ export default function WVWCommandCenter() {
     return filtered.length > 0 ? filtered : [];
   }, [contentData, search]);
 
-  const activeSummary = realStats
-    ? realStats.map((r) => ({ platform: r.platform, followers: r.followers, engagement: r.engagement, ctr: r.ctr, posts: r.posts, leadScore: r.lead_score }))
+  // Guard: API may return {error:"..."} when Supabase creds are wrong — must be a non-empty array
+  const safeStats = Array.isArray(realStats) && realStats.length > 0 ? realStats : null;
+  const activeSummary = safeStats
+    ? safeStats.map((r) => ({ platform: r.platform, followers: r.followers, engagement: r.engagement, ctr: r.ctr, posts: r.posts, leadScore: r.lead_score }))
     : socialSummary;
-  const statsHaveData = realStats ? realStats.some((r) => r.followers > 0) : false;
-  const statsLastUpdated = realStats ? (realStats.find((r) => r.updated_at)?.updated_at ?? null) : null;
+  const statsHaveData = safeStats ? safeStats.some((r) => r.followers > 0) : false;
+  const statsLastUpdated = safeStats ? (safeStats.find((r) => r.updated_at)?.updated_at ?? null) : null;
   const totalFollowers = activeSummary.reduce((s, r) => s + r.followers, 0);
-  const avgEngagement = (activeSummary.reduce((s, r) => s + r.engagement, 0) / activeSummary.length).toFixed(1);
-  const topPlatform = [...activeSummary].sort((a, b) => b.engagement - a.engagement)[0];
+  const avgEngagement = activeSummary.length
+    ? (activeSummary.reduce((s, r) => s + r.engagement, 0) / activeSummary.length).toFixed(1)
+    : "0.0";
+  const topPlatform = ([...activeSummary].sort((a, b) => b.engagement - a.engagement)[0]) ?? socialSummary[0];
   const topNewsletter = [...newsletters].sort((a, b) => b.favoriteScore - a.favoriteScore)[0];
 
   // Derive content-count bar data from real CSV
