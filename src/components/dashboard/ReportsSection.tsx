@@ -22,9 +22,10 @@ interface Props {
   posts: ContentPost[];
   conversions: Conversion[];
   interactions: CommunityInteraction[];
+  hasRealData?: boolean;
 }
 
-export default function ReportsSection({ posts, conversions, interactions }: Props) {
+export default function ReportsSection({ posts, conversions, interactions, hasRealData = false }: Props) {
   const [open, setOpen] = useState<string | null>(null);
 
   const avgEng = posts.length ? posts.reduce((s, p) => s + calcEngagementRate(p), 0) / posts.length : 0;
@@ -125,7 +126,14 @@ export default function ReportsSection({ posts, conversions, interactions }: Pro
 
   return (
     <div className="space-y-3">
-      <p className="text-sm" style={{ color: C.charcoal }}>Click any report to expand the full strategic brief.</p>
+      <div className="flex items-center gap-3">
+        <p className="text-sm" style={{ color: C.charcoal }}>Click any report to expand the full strategic brief.</p>
+        {!hasRealData && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide shrink-0" style={{ background: C.gold + "44", color: C.charcoal }}>
+            DEMO DATA
+          </span>
+        )}
+      </div>
       {reports.map((report) => {
         const isOpen = open === report.id;
         return (

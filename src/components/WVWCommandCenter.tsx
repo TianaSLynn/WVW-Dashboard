@@ -438,9 +438,13 @@ export default function WVWCommandCenter() {
   const [editingQueue, setEditingQueue] = useState<Record<string, string>>({});
   const [queuePosting, setQueuePosting] = useState<Record<string, boolean>>({});
   const [generatingToQueue, setGeneratingToQueue] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const [queueGenResult, setQueueGenResult] = useState<string | null>(null);
+  const [alertGenerating, setAlertGenerating] = useState<Record<number, boolean>>({});
+  const [alertGenResult, setAlertGenResult] = useState<Record<number, string>>({});
 
   // ── Strategy alerts ──
-  type AlertItem = { type: string; severity: "info" | "warning" | "success"; title: string; body: string };
+  type AlertItem = { type: string; severity: "info" | "warning" | "success"; title: string; body: string; pillar?: string; action?: { label: string; tab?: string } };
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
 
   // ── Lead attribution ──
@@ -477,6 +481,8 @@ export default function WVWCommandCenter() {
   const [statsEditing, setStatsEditing] = useState(false);
   const [statsDraft, setStatsDraft] = useState<StatRow[]>([]);
   const [statsSaving, setStatsSaving] = useState(false);
+  const [testPosting, setTestPosting] = useState<Record<string, boolean>>({});
+  const [testResults, setTestResults] = useState<Record<string, { status: string; error?: string; reason?: string }>>({});
 
   const themeStream  = useStream();
   const wisdomStream = useStream();
@@ -578,10 +584,17 @@ export default function WVWCommandCenter() {
   // ── Fetch content queue ──
   const fetchQueue = () => {
     setQueueLoading(true);
+    setQueueError(null);
     fetch("/api/queue", { cache: "no-store" })
       .then((r) => r.json())
-      .then((rows: unknown) => { if (Array.isArray(rows)) setQueue(rows as QueueItem[]); })
-      .catch(() => {})
+      .then((rows: unknown) => {
+        if (Array.isArray(rows)) {
+          setQueue(rows as QueueItem[]);
+        } else if (rows && typeof rows === "object" && "error" in rows) {
+          setQueueError((rows as { error: string }).error);
+        }
+      })
+      .catch((e) => setQueueError(String(e)))
       .finally(() => setQueueLoading(false));
   };
   useEffect(fetchQueue, []);
@@ -702,13 +715,45 @@ export default function WVWCommandCenter() {
 
   const generateToQueue = async () => {
     setGeneratingToQueue(true);
+    setQueueGenResult(null);
     try {
       const res = await fetch("/api/posting/generate-to-queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      await res.json();
-      fetchQueue();
-      setActiveTab("autopost");
+      const data = await res.json() as { queued?: number; error?: string; message?: string };
+      if (data.error) {
+        setQueueGenResult(`Error: ${data.error}`);
+      } else if (data.message) {
+        setQueueGenResult(data.message);
+      } else {
+        setQueueGenResult(`✓ ${data.queued ?? 0} draft${data.queued !== 1 ? "s" : ""} added to queue`);
+        fetchQueue();
+        setActiveTab("autopost");
+      }
+    } catch (err) {
+      setQueueGenResult(`Error: ${String(err)}`);
     } finally {
       setGeneratingToQueue(false);
+    }
+  };
+
+  const generateFromAlert = async (alertIndex: number, pillar: string) => {
+    setAlertGenerating((s) => ({ ...s, [alertIndex]: true }));
+    setAlertGenResult((s) => ({ ...s, [alertIndex]: "" }));
+    try {
+      const res = await fetch("/api/posting/generate-to-queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: pillar }),
+      });
+      const data = await res.json() as { queued?: number; error?: string };
+      setAlertGenResult((s) => ({
+        ...s,
+        [alertIndex]: data.error ? `Error: ${data.error}` : `✓ ${data.queued ?? 0} draft${data.queued !== 1 ? "s" : ""} queued`,
+      }));
+      fetchQueue();
+    } catch (err) {
+      setAlertGenResult((s) => ({ ...s, [alertIndex]: `Error: ${String(err)}` }));
+    } finally {
+      setAlertGenerating((s) => ({ ...s, [alertIndex]: false }));
     }
   };
 
@@ -760,6 +805,24 @@ export default function WVWCommandCenter() {
       setStatsEditing(false);
     } finally {
       setStatsSaving(false);
+    }
+  };
+
+  const sendTestPost = async (platform: string) => {
+    setTestPosting((p) => ({ ...p, [platform]: true }));
+    setTestResults((r) => ({ ...r, [platform]: { status: "…" } }));
+    try {
+      const res = await fetch("/api/posting/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform }),
+      });
+      const data = await res.json() as { status: string; error?: string; reason?: string };
+      setTestResults((r) => ({ ...r, [platform]: data }));
+    } catch (err) {
+      setTestResults((r) => ({ ...r, [platform]: { status: "error", error: String(err) } }));
+    } finally {
+      setTestPosting((p) => ({ ...p, [platform]: false }));
     }
   };
 
@@ -1864,9 +1927,41 @@ export default function WVWCommandCenter() {
                         border: `1px solid ${a.severity === "warning" ? "#FDE68A" : a.severity === "success" ? C.forest + "33" : "#DDD7CD"}`,
                       }}>
                         <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: a.severity === "warning" ? "#D97706" : a.severity === "success" ? C.forest : C.charcoal }} />
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium" style={{ color: C.warmBlack }}>{a.title}</p>
                           <p className="text-xs mt-0.5" style={{ color: C.charcoal }}>{a.body}</p>
+                          {a.action && (
+                            <div className="flex items-center gap-2 mt-2">
+                              {a.type === "pillar_gap" && a.pillar ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="h-6 text-[11px] px-3 rounded-xl"
+                                    style={{ background: C.forest, color: C.bone }}
+                                    disabled={alertGenerating[i]}
+                                    onClick={() => generateFromAlert(i, a.pillar!)}
+                                  >
+                                    {alertGenerating[i] ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Generating…</> : <><Zap className="w-3 h-3 mr-1" />{a.action.label}</>}
+                                  </Button>
+                                  {alertGenResult[i] && (
+                                    <span className="text-[11px]" style={{ color: alertGenResult[i].startsWith("✓") ? C.forest : C.rose }}>
+                                      {alertGenResult[i]}
+                                    </span>
+                                  )}
+                                </>
+                              ) : a.action.tab ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px] px-3 rounded-xl"
+                                  style={{ borderColor: a.severity === "warning" ? "#D97706" : C.forest, color: a.severity === "warning" ? "#D97706" : C.forest }}
+                                  onClick={() => setActiveTab(a.action!.tab!)}
+                                >
+                                  {a.action.label}
+                                </Button>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1891,10 +1986,26 @@ export default function WVWCommandCenter() {
                       {generatingToQueue ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Generating…</> : <><Zap className="w-3.5 h-3.5 mr-1" /> Generate to Queue</>}
                     </Button>
                   </div>
+                  {queueGenResult && (
+                    <p className="text-xs mt-2" style={{ color: queueGenResult.startsWith("✓") ? C.forest : queueGenResult.startsWith("Error") ? C.rose : C.charcoal }}>
+                      {queueGenResult}
+                    </p>
+                  )}
+                  {queueError && (
+                    <div className="flex items-center gap-2 mt-2 text-xs px-3 py-2 rounded-xl" style={{ background: C.rose + "15", color: C.rose }}>
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      Supabase error: {queueError} — check SUPABASE_URL and SUPABASE_ANON_KEY in Vercel env vars.
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent>
                   {queueLoading ? (
                     <div className="flex items-center gap-2 text-sm py-4" style={{ color: C.charcoal }}><Loader2 className="w-4 h-4 animate-spin" style={{ color: C.forest }} /> Loading queue…</div>
+                  ) : queueError ? (
+                    <div className="text-center py-8 space-y-2">
+                      <p className="text-sm font-medium" style={{ color: C.charcoal }}>Queue unavailable — Supabase not connected.</p>
+                      <p className="text-xs" style={{ color: C.charcoal }}>Add your Supabase credentials in Settings to enable the queue.</p>
+                    </div>
                   ) : queue.filter((q) => q.status === "draft").length === 0 ? (
                     <p className="text-sm text-center py-6" style={{ color: C.charcoal }}>
                       No drafts in queue. Click &ldquo;Generate to Queue&rdquo; to create today's content for review.
@@ -2369,6 +2480,19 @@ export default function WVWCommandCenter() {
                       Loading calendar…
                     </div>
                   ) : (() => {
+                    const DAYS_OF_WEEK = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"] as const;
+                    type DOW = typeof DAYS_OF_WEEK[number];
+                    const SCHED: Record<string, DOW[]> = {
+                      linkedin_personal: ["Mon","Tue","Wed","Thu","Fri","Sat"],
+                      linkedin_wvw:      ["Mon","Tue","Wed","Thu","Fri"],
+                      threads:           ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+                      twitter:           ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+                      bluesky:           ["Mon","Tue","Wed","Thu","Fri","Sat"],
+                      bluesky_personal:  ["Mon","Tue","Wed","Thu","Fri","Sat"],
+                      facebook:          ["Mon","Tue","Wed","Thu","Fri"],
+                      instagram:         ["Mon","Tue","Wed","Thu","Fri"],
+                    };
+                    const todayStr = new Date().toISOString().slice(0,10);
                     const daysInMonth = new Date(calYear, calMonth, 0).getDate();
                     const firstDow = new Date(calYear, calMonth - 1, 1).getDay();
                     const byDate: Record<string, typeof calEntries> = {};
@@ -2376,6 +2500,16 @@ export default function WVWCommandCenter() {
                       if (!byDate[e.date]) byDate[e.date] = [];
                       byDate[e.date].push(e);
                     });
+                    // Build scheduled slots for future dates with no logged posts
+                    const scheduledByDate: Record<string, string[]> = {};
+                    for (let d = 1; d <= daysInMonth; d++) {
+                      const dateStr = `${calYear}-${String(calMonth).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+                      if (dateStr <= todayStr) continue; // only future
+                      if (byDate[dateStr]?.length) continue; // already has real posts
+                      const dow = DAYS_OF_WEEK[new Date(dateStr + "T12:00:00").getDay()];
+                      const platforms = (Object.keys(SCHED) as string[]).filter((p) => SCHED[p].includes(dow));
+                      if (platforms.length > 0) scheduledByDate[dateStr] = platforms;
+                    }
                     const PLATFORM_COLORS: Record<string, string> = {
                       linkedin_personal: "#0A66C2",
                       linkedin_wvw: "#0A66C2",
@@ -2403,8 +2537,10 @@ export default function WVWCommandCenter() {
                             if (!day) return <div key={`empty-${idx}`} />;
                             const dateStr = `${calYear}-${String(calMonth).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
                             const entries = byDate[dateStr] ?? [];
+                            const scheduled = scheduledByDate[dateStr] ?? [];
                             const isSelected = calSelected === dateStr;
-                            const isToday = dateStr === new Date().toISOString().slice(0,10);
+                            const isToday = dateStr === todayStr;
+                            const isFuture = dateStr > todayStr;
                             return (
                               <button
                                 key={day}
@@ -2413,6 +2549,7 @@ export default function WVWCommandCenter() {
                                 style={{
                                   background: isSelected ? C.forest : isToday ? C.gold + "33" : C.ivory,
                                   border: `1px solid ${isSelected ? C.forest : isToday ? C.gold : "#DDD7CD"}`,
+                                  opacity: isFuture && !scheduled.length ? 0.5 : 1,
                                 }}
                               >
                                 <span className="text-xs font-medium" style={{ color: isSelected ? C.bone : C.warmBlack }}>
@@ -2433,6 +2570,21 @@ export default function WVWCommandCenter() {
                                     )}
                                   </div>
                                 )}
+                                {entries.length === 0 && scheduled.length > 0 && (
+                                  <div className="flex flex-wrap gap-0.5 justify-center">
+                                    {scheduled.slice(0, 4).map((p, i) => (
+                                      <div
+                                        key={i}
+                                        className="w-1.5 h-1.5 rounded-full"
+                                        style={{ background: PLATFORM_COLORS[p] ?? C.charcoal, opacity: 0.35 }}
+                                        title={`Scheduled: ${p}`}
+                                      />
+                                    ))}
+                                    {scheduled.length > 4 && (
+                                      <span className="text-[8px]" style={{ color: isSelected ? C.bone+"99" : C.charcoal+"99" }}>+{scheduled.length - 4}</span>
+                                    )}
+                                  </div>
+                                )}
                               </button>
                             );
                           })}
@@ -2444,7 +2596,21 @@ export default function WVWCommandCenter() {
                               {new Date(calSelected + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                             </p>
                             {selectedEntries.length === 0 ? (
-                              <p className="text-sm" style={{ color: C.charcoal }}>No posts logged for this day.</p>
+                              scheduledByDate[calSelected]?.length ? (
+                                <div className="space-y-2">
+                                  <p className="text-xs font-medium" style={{ color: C.charcoal }}>Scheduled platforms</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {scheduledByDate[calSelected].map((p) => (
+                                      <span key={p} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: C.bone, color: C.charcoal, border: `1px solid #DDD7CD` }}>
+                                        {p.replace(/_/g, " ")}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <p className="text-xs" style={{ color: C.sage }}>No posts logged yet — cron will post automatically at the scheduled time.</p>
+                                </div>
+                              ) : (
+                                <p className="text-sm" style={{ color: C.charcoal }}>No posts logged for this day.</p>
+                              )
                             ) : (
                               <div className="space-y-2">
                                 {selectedEntries.map((e) => (
@@ -2778,9 +2944,44 @@ export default function WVWCommandCenter() {
             {/* ── Reports ── */}
             <TabsContent value="reports" className="space-y-4">
               <div className="flex items-center gap-2 px-1">
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Community leads are live. Post analytics require platform API access to be real.</span>
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Community leads are live. Engagement metrics (reach, saves) require platform API access.</span>
               </div>
-              <ReportsSection posts={samplePosts} conversions={sampleConversions} interactions={realLeads} />
+              {(() => {
+                const loggedPosts = (postingStatus?.recentPosts ?? []).filter((p) => p.status === "posted");
+                const hasRealPostData = loggedPosts.length > 0;
+                const postsForReports = hasRealPostData
+                  ? loggedPosts.map((p) => ({
+                      id: p.id,
+                      title: p.theme,
+                      platform: p.platform as import("@/types/dashboard").Platform,
+                      contentType: "Short-form video" as import("@/types/dashboard").ContentType,
+                      topicCategory: p.theme as import("@/types/dashboard").TopicCategory,
+                      hookType: "Question" as import("@/types/dashboard").HookType,
+                      tone: "Grounded",
+                      ctaType: "Reflect",
+                      datePosted: p.timestamp.slice(0, 10),
+                      timePosted: p.timestamp.slice(11, 16),
+                      reach: 0, impressions: 0, views: 0, likes: 0, comments: 0, shares: 0, saves: 0,
+                      engagementRate: 0,
+                      conversionFlag: false,
+                      status: "Published" as import("@/types/dashboard").PostStatus,
+                    }))
+                  : samplePosts;
+                return (
+                  <ReportsSection
+                    posts={postsForReports}
+                    conversions={realConversions.length > 0
+                      ? realConversions.map((c) => ({
+                          id: c.id, date: c.date, sourcePlatform: c.source_platform as import("@/types/dashboard").Platform,
+                          conversionType: c.conversion_type as import("@/types/dashboard").ConversionType, description: c.description,
+                          conversionValue: c.value_usd, status: c.status as import("@/types/dashboard").ConversionStatus, notes: c.notes,
+                        }))
+                      : sampleConversions}
+                    interactions={realLeads}
+                    hasRealData={hasRealPostData}
+                  />
+                );
+              })()}
             </TabsContent>
 
             {/* ── Settings ── */}
@@ -2868,6 +3069,7 @@ export default function WVWCommandCenter() {
                   {[
                     {
                       platform: "LinkedIn Personal + WVW",
+                      testKeys: ["linkedin_personal", "linkedin_wvw"] as string[],
                       keys: ["LINKEDIN_ACCESS_TOKEN", "LINKEDIN_PERSON_URN", "LINKEDIN_ORG_URN"],
                       postStatus: postingStatus?.connections.linkedin_token && postingStatus?.connections.linkedin_person,
                       note: "Token expires every 60 days — re-auth at /api/auth/linkedin",
@@ -2875,6 +3077,7 @@ export default function WVWCommandCenter() {
                     },
                     {
                       platform: "Bluesky WVW + Personal",
+                      testKeys: ["bluesky", "bluesky_personal"] as string[],
                       keys: ["BLUESKY_IDENTIFIER", "BLUESKY_APP_PASSWORD", "BLUESKY_PERSONAL_IDENTIFIER", "BLUESKY_PERSONAL_APP_PASSWORD"],
                       postStatus: postingStatus?.connections.bluesky && postingStatus?.connections.bluesky_personal,
                       note: "App passwords never expire — generate at bsky.app → Settings → App Passwords",
@@ -2882,6 +3085,7 @@ export default function WVWCommandCenter() {
                     },
                     {
                       platform: "Facebook WVW Page",
+                      testKeys: [] as string[],
                       keys: ["FACEBOOK_PAGE_ACCESS_TOKEN", "FACEBOOK_PAGE_ID"],
                       postStatus: postingStatus?.connections.facebook,
                       note: "Long-lived token (60 days) — renew via Meta Graph API Explorer",
@@ -2889,6 +3093,7 @@ export default function WVWCommandCenter() {
                     },
                     {
                       platform: "Instagram Business",
+                      testKeys: [] as string[],
                       keys: ["INSTAGRAM_BUSINESS_ACCOUNT_ID"],
                       postStatus: postingStatus?.connections.instagram,
                       note: "Uses same FACEBOOK_PAGE_ACCESS_TOKEN — account must be Business type",
@@ -2896,6 +3101,7 @@ export default function WVWCommandCenter() {
                     },
                     {
                       platform: "Threads",
+                      testKeys: ["threads"] as string[],
                       keys: ["THREADS_ACCESS_TOKEN", "THREADS_USER_ID"],
                       postStatus: postingStatus?.connections.threads,
                       note: "Generate via developers.facebook.com → your Threads app",
@@ -2903,6 +3109,7 @@ export default function WVWCommandCenter() {
                     },
                     {
                       platform: "Twitter / X",
+                      testKeys: ["twitter"] as string[],
                       keys: ["TWITTER_API_KEY", "TWITTER_API_SECRET", "TWITTER_ACCESS_TOKEN", "TWITTER_ACCESS_SECRET"],
                       postStatus: postingStatus?.connections.twitter,
                       note: "OAuth 1.0a — generate at developer.twitter.com → Your App → Keys and Tokens",
@@ -2910,6 +3117,7 @@ export default function WVWCommandCenter() {
                     },
                     {
                       platform: "TikTok (via Buffer)",
+                      testKeys: [] as string[],
                       keys: ["BUFFER_ACCESS_TOKEN", "BUFFER_PROFILE_TIKTOK"],
                       postStatus: postingStatus?.connections.tiktok_buffer,
                       note: "Connect TikTok to Buffer → get API token at buffer.com/developers",
@@ -2917,6 +3125,7 @@ export default function WVWCommandCenter() {
                     },
                     {
                       platform: "Supabase (post log + calendar + blog)",
+                      testKeys: [] as string[],
                       keys: ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
                       postStatus: !!(postingStatus?.recentPosts !== undefined),
                       note: "Project: xsrcvtpbrhuiymxyxwkf — get keys at supabase.com → project → Settings → API",
@@ -2949,6 +3158,35 @@ export default function WVWCommandCenter() {
                         </div>
                         <p className="text-xs" style={{ color: C.charcoal }}>{item.note}</p>
                         <p className="text-xs italic" style={{ color: C.sage }}>Analytics: {item.analyticsNote}</p>
+                        {item.testKeys.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {item.testKeys.map((tk) => {
+                              const res = testResults[tk];
+                              const busy = testPosting[tk];
+                              return (
+                                <div key={tk} className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-xl text-[11px] h-7 px-3"
+                                    style={{ borderColor: C.forest, color: C.forest }}
+                                    disabled={busy}
+                                    onClick={() => sendTestPost(tk)}
+                                  >
+                                    {busy ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Testing…</> : `Test ${tk.replace("_", " ")}`}
+                                  </Button>
+                                  {res && (
+                                    <span className="text-[11px]" style={{
+                                      color: res.status === "posted" ? C.forest : res.status === "skipped" ? C.sage : C.rose,
+                                    }}>
+                                      {res.status === "posted" ? "✓ posted" : res.status === "skipped" ? `skipped: ${res.reason}` : `✗ ${res.error}`}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

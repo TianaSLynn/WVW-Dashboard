@@ -14,6 +14,8 @@ export interface Alert {
   severity: "info" | "warning" | "success";
   title: string;
   body: string;
+  pillar?: string;
+  action?: { label: string; tab?: string };
 }
 
 export async function GET() {
@@ -38,12 +40,13 @@ export async function GET() {
     });
 
     if (pillarPosts.length === 0) {
-      const daysSince = 30;
       alerts.push({
         type: "pillar_gap",
         severity: "warning",
         title: `${pillar} — not posted this month`,
         body: `No posts tagged to "${pillar}" in the last 30 days. Consider queuing a piece.`,
+        pillar,
+        action: { label: "Create Post" },
       });
     } else {
       const latest = pillarPosts.reduce((a, b) => {
@@ -58,6 +61,8 @@ export async function GET() {
           severity: "warning",
           title: `${pillar} — ${daysSince} days since last post`,
           body: `Your last "${pillar}" post was ${daysSince} days ago. Your audience expects regular content here.`,
+          pillar,
+          action: { label: "Create Post" },
         });
       }
     }
@@ -73,6 +78,7 @@ export async function GET() {
       severity: "warning",
       title: `${needsResponse.length} lead${needsResponse.length > 1 ? "s" : ""} need a response`,
       body: "Open the Community tab to see who's waiting. Fast responses increase conversion rates significantly.",
+      action: { label: "View Community", tab: "community" },
     });
   }
 
@@ -82,6 +88,7 @@ export async function GET() {
       severity: "success",
       title: `${hotLeads.length} active lead${hotLeads.length > 1 ? "s" : ""} this week`,
       body: "Check the Community tab for follow-up opportunities.",
+      action: { label: "View Community", tab: "community" },
     });
   }
 
