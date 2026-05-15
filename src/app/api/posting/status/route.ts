@@ -3,6 +3,7 @@ import { readPostLog } from "@/lib/logger";
 
 export async function GET() {
   const connections = {
+    anthropic_key:     !!process.env.ANTHROPIC_API_KEY,
     linkedin_token:    !!process.env.LINKEDIN_ACCESS_TOKEN,
     linkedin_person:   !!process.env.LINKEDIN_PERSON_URN,
     linkedin_org:      !!process.env.LINKEDIN_ORG_URN,

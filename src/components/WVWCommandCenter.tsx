@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Eye,
   FileText,
   Filter,
   FolderKanban,
@@ -439,6 +440,15 @@ export default function WVWCommandCenter() {
   type AlertItem = { type: string; severity: "info" | "warning" | "success"; title: string; body: string; pillar?: string; action?: { label: string; tab?: string } };
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
 
+  // ── Generate & Preview ──
+  type PreviewPost = { platform: string; text: string; edited: string };
+  const [previewing, setPreviewing] = useState(false);
+  const [previewPosts, setPreviewPosts] = useState<PreviewPost[]>([]);
+  const [previewTheme, setPreviewTheme] = useState("");
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [postingPreview, setPostingPreview] = useState<Record<string, boolean>>({});
+  const [postedPreview, setPostedPreview] = useState<Record<string, string>>({});
+
   // ── Lead attribution ──
   type AttrTheme = { theme: string; posts: number; leads: number; conversions: number; score: number };
   type AttrPlatform = { platform: string; posts: number; leads: number };
@@ -639,6 +649,49 @@ export default function WVWCommandCenter() {
       setThemeOfMonthState(theme);
     } finally {
       setSettingTheme(false);
+    }
+  };
+
+  const generatePreview = async () => {
+    if (selectedPlatforms.length === 0) return;
+    setPreviewing(true);
+    setPreviewPosts([]);
+    setPreviewError(null);
+    setPostedPreview({});
+    try {
+      const res = await fetch("/api/generate/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platforms: selectedPlatforms, theme: postingStatus?.todayTheme }),
+      });
+      const data = await res.json() as { posts?: Record<string, string>; theme?: string; error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Generation failed");
+      setPreviewTheme(data.theme ?? "");
+      const posts = Object.entries(data.posts ?? {}).map(([platform, text]) => ({
+        platform, text: text ?? "", edited: text ?? "",
+      }));
+      setPreviewPosts(posts);
+    } catch (err) {
+      setPreviewError((err as Error).message);
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const postSinglePreview = async (platform: string, text: string) => {
+    setPostingPreview((s) => ({ ...s, [platform]: true }));
+    try {
+      const res = await fetch("/api/posting/post-single", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform, text, theme: previewTheme }),
+      });
+      const data = await res.json() as { status: string; error?: string };
+      setPostedPreview((s) => ({ ...s, [platform]: data.status === "posted" ? "✓ Posted" : `✗ ${data.error ?? "Error"}` }));
+    } catch (err) {
+      setPostedPreview((s) => ({ ...s, [platform]: `✗ ${String(err)}` }));
+    } finally {
+      setPostingPreview((s) => ({ ...s, [platform]: false }));
     }
   };
 
@@ -1664,6 +1717,7 @@ export default function WVWCommandCenter() {
                   </div>
                 ) : (
                   [
+                    { label: "Claude AI (Generation)", key: "anthropic_key" },
                     { label: "LinkedIn Token",    key: "linkedin_token" },
                     { label: "LinkedIn Personal", key: "linkedin_person" },
                     { label: "LinkedIn WVW Page", key: "linkedin_org" },
@@ -1694,6 +1748,109 @@ export default function WVWCommandCenter() {
                   })
                 )}
               </div>
+
+              {/* ── ANTHROPIC_API_KEY Critical Warning ── */}
+              {postingStatus && !postingStatus.connections.anthropic_key && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl border-2" style={{ background: "#FEF3C7", borderColor: "#D97706" }}>
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#D97706" }} />
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: "#92400E" }}>ANTHROPIC_API_KEY is not set — nothing will generate or post</p>
+                    <p className="text-xs mt-1" style={{ color: "#92400E" }}>Go to <strong>Vercel → your project → Settings → Environment Variables</strong> and add <code className="px-1 rounded" style={{ background: "#FDE68A" }}>ANTHROPIC_API_KEY</code> with your Anthropic API key. Then redeploy. Without this, all content generation (posts, wisdoms, newsletters, Black Excellence) will fail silently.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Generate & Preview Panel ── */}
+              <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                <CardHeader>
+                  <CardTitle className="font-serif text-xl flex items-center gap-2">
+                    <Eye className="w-4 h-4" style={{ color: C.forest }} /> Generate & Preview
+                  </CardTitle>
+                  <CardDescription style={{ color: C.charcoal }}>
+                    Generate all posts for your selected platforms and review them before anything goes live. Edit inline, then post individually or all at once.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button
+                    className="w-full rounded-2xl"
+                    style={{ background: C.forest, color: C.bone }}
+                    onClick={generatePreview}
+                    disabled={previewing || selectedPlatforms.length === 0 || !postingStatus?.connections.anthropic_key}
+                  >
+                    {previewing
+                      ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating previews…</>
+                      : <><Eye className="w-4 h-4 mr-2" /> Generate Previews ({selectedPlatforms.length} platform{selectedPlatforms.length !== 1 ? "s" : ""})</>
+                    }
+                  </Button>
+
+                  {!postingStatus?.connections.anthropic_key && (
+                    <p className="text-xs text-center" style={{ color: C.rose }}>Add ANTHROPIC_API_KEY to Vercel to enable generation.</p>
+                  )}
+
+                  {previewError && (
+                    <div className="p-3 rounded-2xl text-xs flex items-start gap-2" style={{ background: C.rose + "15", color: C.rose }}>
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span><strong>Generation failed:</strong> {previewError}</span>
+                    </div>
+                  )}
+
+                  {previewPosts.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium" style={{ color: C.charcoal }}>Theme: <span style={{ color: C.warmBlack }}>{previewTheme}</span></p>
+                        <Button
+                          size="sm"
+                          className="rounded-xl text-xs"
+                          style={{ background: C.forest, color: C.bone }}
+                          onClick={() => {
+                            previewPosts.forEach((p) => {
+                              if (!postedPreview[p.platform]) {
+                                void postSinglePreview(p.platform, p.edited || p.text);
+                              }
+                            });
+                          }}
+                          disabled={Object.values(postingPreview).some(Boolean)}
+                        >
+                          <Play className="w-3 h-3 mr-1" /> Post All
+                        </Button>
+                      </div>
+                      {previewPosts.map((p) => (
+                        <div key={p.platform} className="rounded-2xl border overflow-hidden" style={{ borderColor: "#DDD7CD" }}>
+                          <div className="flex items-center justify-between px-4 py-2" style={{ background: C.ivory }}>
+                            <span className="text-xs font-semibold" style={{ color: C.warmBlack }}>{p.platform.replace(/_/g, " ")}</span>
+                            <div className="flex items-center gap-2">
+                              {postedPreview[p.platform] && (
+                                <span className="text-[11px] font-medium" style={{ color: postedPreview[p.platform]?.startsWith("✓") ? C.forest : C.rose }}>
+                                  {postedPreview[p.platform]}
+                                </span>
+                              )}
+                              {!postedPreview[p.platform] && (
+                                <button
+                                  onClick={() => postSinglePreview(p.platform, p.edited || p.text)}
+                                  disabled={!!postingPreview[p.platform]}
+                                  className="text-[11px] px-3 py-1 rounded-xl border transition-colors disabled:opacity-40"
+                                  style={{ borderColor: C.forest, color: C.forest, background: C.bone }}
+                                >
+                                  {postingPreview[p.platform] ? <Loader2 className="w-3 h-3 animate-spin" /> : "Post this"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <textarea
+                            value={p.edited}
+                            onChange={(e) => setPreviewPosts((prev) =>
+                              prev.map((pp) => pp.platform === p.platform ? { ...pp, edited: e.target.value } : pp)
+                            )}
+                            rows={Math.min(10, Math.ceil(p.text.length / 60))}
+                            className="w-full p-4 text-xs resize-y focus:outline-none"
+                            style={{ background: C.bone, color: C.charcoal, minHeight: "5rem" }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
