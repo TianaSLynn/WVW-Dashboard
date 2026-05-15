@@ -1111,7 +1111,7 @@ export default function WVWCommandCenter() {
               {[
                 { value: "overview",      label: "Overview"     },
                 { value: "socials",       label: "Socials"      },
-                { value: "insights",      label: "Trends"       },
+                { value: "insights",      label: "Reddit/Trends" },
                 { value: "newsletters",   label: "Newsletters"  },
                 { value: "content",       label: "Content"      },
                 { value: "wisdom",        label: "Wisdoms"      },
@@ -2003,6 +2003,41 @@ export default function WVWCommandCenter() {
                             </div>
                           )}
                         </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* ── Reddit Signals Preview ── */}
+              {!redditLoading && redditSignals.length > 0 && (
+                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="font-serif text-xl flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4" style={{ color: C.forest }} /> Top Reddit Signals
+                        </CardTitle>
+                        <CardDescription style={{ color: C.charcoal }}>Live from r/burnout, r/ADHD, r/blackmentalhealth, r/humanresources — what your niche is talking about right now.</CardDescription>
+                      </div>
+                      <button
+                        className="text-xs px-3 py-1.5 rounded-full border transition-colors shrink-0"
+                        style={{ borderColor: C.forest, color: C.forest, background: C.ivory }}
+                        onClick={() => setActiveTab("insights")}
+                      >
+                        View all →
+                      </button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {redditSignals.slice(0, 3).map((signal, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: C.ivory }}>
+                        <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: signal.momentum === "High" ? C.forest : signal.momentum === "Medium" ? C.gold : C.charcoal }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium leading-snug" style={{ color: C.warmBlack }}>{signal.theme}</p>
+                          <p className="text-xs mt-0.5" style={{ color: C.charcoal }}>{signal.source} · {signal.action}</p>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0 font-medium" style={{ background: signal.momentum === "High" ? C.forest + "22" : C.gold + "33", color: signal.momentum === "High" ? C.forest : C.charcoal }}>{signal.momentum}</span>
                       </div>
                     ))}
                   </CardContent>
@@ -3161,6 +3196,22 @@ export default function WVWCommandCenter() {
                       postStatus: !!(postingStatus?.recentPosts !== undefined),
                       note: "Project: xsrcvtpbrhuiymxyxwkf — get keys at supabase.com → project → Settings → API",
                       analyticsNote: "Required for calendar, recent post log, and blog publishing to work",
+                    },
+                    {
+                      platform: "Reddit Signals (Trends tab)",
+                      testKeys: [] as string[],
+                      keys: [] as string[],
+                      postStatus: true,
+                      note: "Uses Reddit's public JSON API — no credentials required. Pulls live signals from r/burnout, r/ADHD, r/blackmentalhealth, r/humanresources, r/nonprofit, and more. View signals in the Trends tab.",
+                      analyticsNote: "No API key needed — Reddit public feed is always live",
+                    },
+                    {
+                      platform: "Beehiiv (Newsletter)",
+                      testKeys: [] as string[],
+                      keys: ["BEEHIIV_API_KEY", "BEEHIIV_PUBLICATION_ID"],
+                      postStatus: false,
+                      note: "Optional — newsletter still generates without this. Add to auto-publish drafts to Beehiiv. Get API key at app.beehiiv.com → Settings → API.",
+                      analyticsNote: "Required to auto-create Beehiiv drafts from the Publish tab",
                     },
                   ].map((item) => (
                     <div key={item.platform} className="p-4 rounded-2xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }}>

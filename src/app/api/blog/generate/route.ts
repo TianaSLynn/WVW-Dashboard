@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { supabase } from "@/lib/supabase";
 
+export const maxDuration = 60;
+
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const SYSTEM = `You are the editorial voice for Wholistic Vibes Wellness (WVW), writing blog posts for wvwacademy.com.

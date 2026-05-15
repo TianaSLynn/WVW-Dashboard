@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 
+export const maxDuration = 60;
+
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const SYSTEM = `You are the editorial voice for Wholistic Vibes Wellness (WVW), writing for Tiána Lynn's Substack.
