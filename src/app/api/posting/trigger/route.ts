@@ -6,7 +6,12 @@ export async function POST(req: NextRequest) {
   const secret = process.env.CRON_SECRET ?? "";
   const origin = new URL(req.url).origin;
 
-  const res = await fetch(`${origin}/api/cron/daily`, {
+  const body = await req.json().catch(() => ({})) as { platforms?: string[] };
+  const platformParam = body.platforms?.length
+    ? `?platforms=${encodeURIComponent(body.platforms.join(","))}`
+    : "";
+
+  const res = await fetch(`${origin}/api/cron/daily${platformParam}`, {
     headers: { authorization: `Bearer ${secret}` },
   });
 

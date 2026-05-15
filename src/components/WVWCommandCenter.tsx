@@ -296,7 +296,6 @@ function MonthPlanDisplay({ raw, loading }: { raw: string; loading: boolean }) {
     "LinkedIn WVW": C.sage,
     "Instagram": C.rose,
     "Threads": C.charcoal,
-    "Twitter": "#1DA1F2",
     "Facebook": "#4267B2",
     "Bluesky": "#0085ff",
   };
@@ -443,6 +442,17 @@ export default function WVWCommandCenter() {
   const [alertGenerating, setAlertGenerating] = useState<Record<number, boolean>>({});
   const [alertGenResult, setAlertGenResult] = useState<Record<number, string>>({});
 
+  // ── Platform toggles for manual posting ──
+  const ALL_PLATFORMS = [
+    { key: "linkedin_personal", label: "LinkedIn Personal" },
+    { key: "linkedin_wvw",      label: "LinkedIn WVW" },
+    { key: "threads",           label: "Threads" },
+    { key: "bluesky",           label: "Bluesky" },
+    { key: "bluesky_personal",  label: "Bluesky Personal" },
+    { key: "facebook",          label: "Facebook" },
+  ] as const;
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+
   // ── Strategy alerts ──
   type AlertItem = { type: string; severity: "info" | "warning" | "success"; title: string; body: string; pillar?: string; action?: { label: string; tab?: string } };
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
@@ -512,7 +522,10 @@ export default function WVWCommandCenter() {
         if (!r.ok) throw new Error(`Status ${r.status}`);
         return r.json();
       })
-      .then((d: PostingStatus) => setPostingStatus(d))
+      .then((d: PostingStatus) => {
+        setPostingStatus(d);
+        if (d.todayPlatforms?.length) setSelectedPlatforms(d.todayPlatforms);
+      })
       .catch((err) => console.error("[posting/status]", err))
       .finally(() => setPostingLoading(false));
   }, []);
@@ -642,7 +655,8 @@ export default function WVWCommandCenter() {
     setTriggering(true);
     setTriggerResult(null);
     try {
-      const res = await fetch("/api/posting/trigger", { method: "POST" });
+      const body = selectedPlatforms.length ? { platforms: selectedPlatforms } : {};
+      const res = await fetch("/api/posting/trigger", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       const summary = Object.entries(data.results ?? {})
         .map(([p, r]) => `${p}: ${(r as { status: string }).status}`)
@@ -717,7 +731,8 @@ export default function WVWCommandCenter() {
     setGeneratingToQueue(true);
     setQueueGenResult(null);
     try {
-      const res = await fetch("/api/posting/generate-to-queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const body = selectedPlatforms.length ? { platforms: selectedPlatforms } : {};
+      const res = await fetch("/api/posting/generate-to-queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json() as { queued?: number; error?: string; message?: string };
       if (data.error) {
         setQueueGenResult(`Error: ${data.error}`);
@@ -1690,7 +1705,6 @@ export default function WVWCommandCenter() {
                     { label: "LinkedIn Token",    key: "linkedin_token" },
                     { label: "LinkedIn Personal", key: "linkedin_person" },
                     { label: "LinkedIn WVW Page", key: "linkedin_org" },
-                    { label: "X / Twitter",       key: "twitter" },
                     { label: "Bluesky",           key: "bluesky" },
                     { label: "Bluesky Personal",  key: "bluesky_personal" },
                     { label: "Facebook WVW",      key: "facebook" },
@@ -1730,19 +1744,45 @@ export default function WVWCommandCenter() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {postingStatus?.todayPlatforms.length === 0 && (
-                      <p className="text-sm" style={{ color: C.charcoal }}>No platforms scheduled today.</p>
-                    )}
-                    {(postingStatus?.todayPlatforms ?? []).map((p) => (
-                      <div
-                        key={p}
-                        className="flex items-center justify-between px-3 py-2.5 rounded-2xl"
-                        style={{ background: C.ivory }}
-                      >
-                        <span className="text-sm font-medium capitalize">{p.replace(/_/g, " ")}</span>
-                        <Zap className="w-3.5 h-3.5" style={{ color: C.gold }} />
+                    <div>
+                      <p className="text-xs font-medium mb-2" style={{ color: C.charcoal }}>
+                        Select platforms to post to — toggle to add or remove:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {ALL_PLATFORMS.map(({ key, label }) => {
+                          const on = selectedPlatforms.includes(key);
+                          const connected = postingStatus?.connections[
+                            key === "linkedin_personal" ? "linkedin_token"
+                            : key === "linkedin_wvw" ? "linkedin_org"
+                            : key
+                          ];
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() =>
+                                setSelectedPlatforms((prev) =>
+                                  prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]
+                                )
+                              }
+                              className="px-3 py-1.5 rounded-2xl text-xs font-medium border transition-all"
+                              style={{
+                                background: on ? C.forest : C.ivory,
+                                color: on ? C.bone : C.charcoal,
+                                borderColor: on ? C.forest : connected ? "#DDD7CD" : C.rose + "88",
+                                opacity: connected === false ? 0.6 : 1,
+                              }}
+                              title={connected === false ? "Not connected — add credentials in Settings" : undefined}
+                            >
+                              {on ? "✓ " : ""}{label}
+                            </button>
+                          );
+                        })}
                       </div>
-                    ))}
+                      {selectedPlatforms.length === 0 && (
+                        <p className="text-xs mt-2" style={{ color: C.rose }}>Select at least one platform.</p>
+                      )}
+                    </div>
 
                     {!postingStatus?.connections.linkedin_token && (
                       <a
@@ -1761,7 +1801,7 @@ export default function WVWCommandCenter() {
                       className="w-full rounded-2xl mt-2"
                       style={{ background: C.forest, color: C.bone }}
                       onClick={triggerPosting}
-                      disabled={triggering || wisdomTriggering}
+                      disabled={triggering || wisdomTriggering || selectedPlatforms.length === 0}
                     >
                       {triggering
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Posting…</>
@@ -1819,10 +1859,10 @@ export default function WVWCommandCenter() {
                     >
                       <p><strong style={{ color: C.warmBlack }}>Daily cron:</strong> Daily 12pm ET (17:00 UTC)</p>
                       <p><strong style={{ color: C.warmBlack }}>Wisdom cron:</strong> Daily 9am ET (14:00 UTC) · all socials</p>
-                      <p><strong style={{ color: C.warmBlack }}>Black Excellence cron:</strong> Daily 3pm ET (20:00 UTC) · Threads, Twitter, Bluesky, LinkedIn WVW, Facebook</p>
+                      <p><strong style={{ color: C.warmBlack }}>Black Excellence cron:</strong> Daily 3pm ET (20:00 UTC) · Threads, Bluesky, LinkedIn WVW, Facebook</p>
                       <p><strong style={{ color: C.warmBlack }}>Newsletter cron:</strong> Mon / Wed / Fri 1pm ET (18:00 UTC)</p>
                       <p><strong style={{ color: C.warmBlack }}>Instagram:</strong> carousel posts via Meta API</p>
-                      <p><strong style={{ color: C.warmBlack }}>Threads / Twitter / Facebook:</strong> posts directly</p>
+                      <p><strong style={{ color: C.warmBlack }}>Threads / Facebook:</strong> posts directly</p>
                       <p><strong style={{ color: C.warmBlack }}>TikTok:</strong> queued in Buffer (not yet configured)</p>
                     </div>
                   </CardContent>
@@ -1981,9 +2021,11 @@ export default function WVWCommandCenter() {
                     </div>
                     <Button
                       size="sm" className="rounded-2xl text-xs shrink-0" style={{ background: C.forest, color: C.bone }}
-                      onClick={generateToQueue} disabled={generatingToQueue}
+                      onClick={generateToQueue} disabled={generatingToQueue || selectedPlatforms.length === 0}
                     >
-                      {generatingToQueue ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Generating…</> : <><Zap className="w-3.5 h-3.5 mr-1" /> Generate to Queue</>}
+                      {generatingToQueue
+                        ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Generating…</>
+                        : <><Zap className="w-3.5 h-3.5 mr-1" /> Generate ({selectedPlatforms.length || "0"} platforms)</>}
                     </Button>
                   </div>
                   {queueGenResult && (
@@ -2486,7 +2528,6 @@ export default function WVWCommandCenter() {
                       linkedin_personal: ["Mon","Tue","Wed","Thu","Fri","Sat"],
                       linkedin_wvw:      ["Mon","Tue","Wed","Thu","Fri"],
                       threads:           ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
-                      twitter:           ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
                       bluesky:           ["Mon","Tue","Wed","Thu","Fri","Sat"],
                       bluesky_personal:  ["Mon","Tue","Wed","Thu","Fri","Sat"],
                       facebook:          ["Mon","Tue","Wed","Thu","Fri"],
@@ -2518,7 +2559,6 @@ export default function WVWCommandCenter() {
                       threads: "#6E5DE0",
                       bluesky: "#0085FF",
                       bluesky_personal: "#0085FF",
-                      twitter: "#1DA1F2",
                       tiktok: "#FF0050",
                     };
                     const cells: (number | null)[] = [
@@ -2647,7 +2687,6 @@ export default function WVWCommandCenter() {
                             "Instagram": "#E1306C",
                             "Threads": "#6E5DE0",
                             "Bluesky": "#0085FF",
-                            "Twitter": "#1DA1F2",
                           }).map(([label, color]) => (
                             <div key={label} className="flex items-center gap-1.5">
                               <div className="w-2 h-2 rounded-full" style={{ background: color }} />
@@ -3108,14 +3147,6 @@ export default function WVWCommandCenter() {
                       analyticsNote: "Add threads_manage_insights scope for Threads analytics",
                     },
                     {
-                      platform: "Twitter / X",
-                      testKeys: ["twitter"] as string[],
-                      keys: ["TWITTER_API_KEY", "TWITTER_API_SECRET", "TWITTER_ACCESS_TOKEN", "TWITTER_ACCESS_SECRET"],
-                      postStatus: postingStatus?.connections.twitter,
-                      note: "OAuth 1.0a — generate at developer.twitter.com → Your App → Keys and Tokens",
-                      analyticsNote: "Free tier: tweet metrics only. Basic tier ($100/mo): full analytics",
-                    },
-                    {
                       platform: "TikTok (via Buffer)",
                       testKeys: [] as string[],
                       keys: ["BUFFER_ACCESS_TOKEN", "BUFFER_PROFILE_TIKTOK"],
@@ -3254,7 +3285,7 @@ export default function WVWCommandCenter() {
               {
                 icon: Link2,
                 title: "Live Integrations",
-                text: "LinkedIn, Threads, Bluesky, Facebook, Beehiiv connected. Add Twitter, Instagram, TikTok in Settings.",
+                text: "LinkedIn, Threads, Bluesky, Facebook, Beehiiv connected. Add Instagram and TikTok in Settings.",
                 tab: "settings",
                 action: "Manage Connections",
                 live: true,
@@ -3323,7 +3354,7 @@ export default function WVWCommandCenter() {
                   Your command center is live and posting.
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm" style={{ color: C.bone + "cc" }}>
-                  LinkedIn, Threads, Bluesky, and Facebook are connected. Unicorn Wisdoms post daily at 9am ET. Content cron runs at 12pm ET. Add Twitter, Instagram, and TikTok credentials in Settings to expand your reach.
+                  LinkedIn, Threads, Bluesky, and Facebook are connected. Unicorn Wisdoms post daily at 9am ET. Content cron runs at 12pm ET. Add Instagram and TikTok credentials in Settings to expand your reach.
                 </p>
               </div>
               <div className="flex gap-3 flex-wrap">

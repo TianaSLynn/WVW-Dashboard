@@ -5,7 +5,6 @@ export const maxDuration = 60;
 import type { Platform } from "@/lib/schedule";
 import { generateDailyPosts } from "@/lib/generate-posts";
 import { postToLinkedIn } from "@/lib/linkedin";
-import { postToTwitter } from "@/lib/twitter";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { postToFacebook, postToInstagram, postToInstagramCarousel, postToThreads } from "@/lib/facebook";
 import { queueInBuffer } from "@/lib/buffer";
@@ -36,7 +35,10 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const platforms = getTodayPlatforms();
+  const platformOverride = new URL(req.url).searchParams.get("platforms");
+  const platforms = (platformOverride
+    ? (platformOverride.split(",").map((p) => p.trim()).filter(Boolean) as ReturnType<typeof getTodayPlatforms>)
+    : getTodayPlatforms());
   const theme = getTodayTheme();
 
   if (platforms.length === 0) {
@@ -77,15 +79,6 @@ export async function GET(req: NextRequest) {
       log("linkedin_wvw", posts.linkedin_wvw, { status: "skipped", error: "LINKEDIN_ORG_URN not set" });
     } else {
       log("linkedin_wvw", posts.linkedin_wvw, await run("linkedin_wvw", () => postToLinkedIn(posts.linkedin_wvw!, urn)));
-    }
-  }
-
-  // ── X / Twitter ──
-  if (platforms.includes("twitter") && posts.twitter) {
-    if (!process.env.TWITTER_API_KEY) {
-      log("twitter", posts.twitter, { status: "skipped", error: "Twitter not configured" });
-    } else {
-      log("twitter", posts.twitter, await run("twitter", () => postToTwitter(posts.twitter!)));
     }
   }
 

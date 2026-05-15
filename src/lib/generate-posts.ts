@@ -57,8 +57,6 @@ const PLATFORM_INSTRUCTIONS: Record<Platform, string> = {
     "Threads — 1-3 punchy sentences. Direct structural observation. No hashtags. No fluff. Under 300 characters.",
   tiktok:
     "TikTok script — written as spoken word. Hook statement (1 line) + 3 key points + close. Max 60 seconds when read aloud. No 'hey guys.' No performance.",
-  twitter:
-    "X/Twitter — sharp, declarative. Under 240 characters. One structural truth or named observation. No hashtag spam. Standalone — does not require context.",
   bluesky:
     "Bluesky — 1-2 sentences. Structural truth or grounded observation. Under 260 characters. No hashtags. Feels like a quiet, precise thought.",
   facebook:
@@ -126,7 +124,6 @@ export type BlackExcellenceCategory = (typeof BLACK_EXCELLENCE_CATEGORIES)[numbe
 export interface BlackExcellencePosts {
   category: BlackExcellenceCategory;
   subject: string;
-  twitter: string;
   threads: string;
   bluesky_personal: string;
   linkedin_wvw: string;
@@ -162,11 +159,10 @@ ${categoryGuides[category]}
 
 WVW context: Wholistic Vibes Wellness is a Black-led B2B organizational consulting practice focused on Black mental health in the workplace, psychological safety, neuroinclusion, and burnout. Founded by Tiána Lynn. Brand voice: calm, grounded, precise, luxury positioning. Core line: "Soft in appearance. Uncompromising in practice."
 
-Generate posts for all 6 formats below. Return ONLY valid JSON — no markdown, no preamble.
+Generate posts for all 5 formats below. Return ONLY valid JSON — no markdown, no preamble.
 
 Format rules:
 - "subject": the person/study/quote subject (name or short title, e.g. "Dr. Beverly Daniel Tatum")
-- "twitter": ≤240 characters. Sharp, declarative. Honors the subject. No hashtag spam. Ends clean.
 - "threads": ≤480 characters. 2-3 sentences. Educational and honoring. No hashtags.
 - "bluesky_personal": ≤270 characters. Written as Tiána (first person). Feels like a genuine personal reflection about why this person/study matters to her and her work. No hashtags.
 - "linkedin_wvw": 120-150 words. WVW consulting lens. Connects this person/study to psychological safety, Black identity at work, or neuroinclusion. B2B authority voice. No fluff.
@@ -176,7 +172,6 @@ Format rules:
 Return format:
 {
   "subject": "...",
-  "twitter": "...",
   "threads": "...",
   "bluesky_personal": "...",
   "linkedin_wvw": "...",

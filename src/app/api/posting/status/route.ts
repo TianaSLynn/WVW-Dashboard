@@ -6,7 +6,6 @@ export async function GET() {
     linkedin_token:    !!process.env.LINKEDIN_ACCESS_TOKEN,
     linkedin_person:   !!process.env.LINKEDIN_PERSON_URN,
     linkedin_org:      !!process.env.LINKEDIN_ORG_URN,
-    twitter:           !!(process.env.TWITTER_API_KEY && process.env.TWITTER_ACCESS_TOKEN),
     bluesky:           !!(process.env.BLUESKY_IDENTIFIER && process.env.BLUESKY_APP_PASSWORD),
     bluesky_personal:  !!(process.env.BLUESKY_PERSONAL_IDENTIFIER && process.env.BLUESKY_PERSONAL_APP_PASSWORD),
     facebook:          !!(process.env.FACEBOOK_PAGE_ACCESS_TOKEN && process.env.FACEBOOK_PAGE_ID),

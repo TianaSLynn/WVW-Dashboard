@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { generateDailyPosts } from "@/lib/generate-posts";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
-import { postToTwitter } from "@/lib/twitter";
 import { postToThreads } from "@/lib/facebook";
 import { appendPostLog } from "@/lib/logger";
 import { getTodayTheme } from "@/lib/schedule";
@@ -22,16 +21,15 @@ async function run(fn: () => Promise<unknown>): Promise<Result> {
 }
 
 // Morning cron: 8am ET (13:00 UTC).
-// Posts a second daily piece to high-volume platforms (Threads, Twitter, Bluesky).
-// These platforms reward volume — 2-3 posts/day drives reach significantly.
-// Uses a morning-framed angle on today's theme, separate from the noon consulting cron.
+// Posts a second daily piece to high-volume platforms (Threads, Bluesky).
+// These platforms reward volume — 2x/day drives reach significantly.
 export async function GET(req: NextRequest) {
   if (!authorized(req)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const theme = getTodayTheme();
-  const platforms = ["threads", "twitter", "bluesky", "bluesky_personal"] as const;
+  const platforms = ["threads", "bluesky", "bluesky_personal"] as const;
 
   let posts: Awaited<ReturnType<typeof generateDailyPosts>>;
   try {
@@ -47,13 +45,6 @@ export async function GET(req: NextRequest) {
     results.threads = await run(() => postToThreads(posts.threads ?? ""));
   } else {
     results.threads = { status: "skipped", error: "Threads not configured" };
-  }
-
-  // Twitter/X — sharp morning take
-  if (process.env.TWITTER_API_KEY && process.env.TWITTER_ACCESS_TOKEN) {
-    results.twitter = await run(() => postToTwitter(posts.twitter ?? ""));
-  } else {
-    results.twitter = { status: "skipped", error: "Twitter not configured" };
   }
 
   // Bluesky WVW — brand voice

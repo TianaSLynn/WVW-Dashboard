@@ -3,7 +3,6 @@ import { generateDailyPosts } from "@/lib/generate-posts";
 import { postToLinkedIn } from "@/lib/linkedin";
 import { postToFacebook, postToThreads } from "@/lib/facebook";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
-import { postToTwitter } from "@/lib/twitter";
 import { appendPostLog } from "@/lib/logger";
 
 export const maxDuration = 60;
@@ -21,7 +20,7 @@ async function run(fn: () => Promise<unknown>): Promise<Result> {
   catch (err) { return { status: "error", error: String(err) }; }
 }
 
-// Academy cron posts WVW Academy-themed content to LinkedIn, Threads, Twitter, Bluesky.
+// Academy cron posts WVW Academy-themed content to LinkedIn, Threads, Bluesky, Facebook.
 // Runs at 4pm ET (21:00 UTC) daily — separate from the 12pm ET consulting content cron.
 export async function GET(req: NextRequest) {
   if (!authorized(req)) {
@@ -29,7 +28,7 @@ export async function GET(req: NextRequest) {
   }
 
   const theme = "WVW Academy";
-  const platforms = ["linkedin_personal", "linkedin_wvw", "threads", "twitter", "bluesky_personal"] as const;
+  const platforms = ["linkedin_personal", "linkedin_wvw", "threads", "bluesky_personal", "facebook"] as const;
 
   let posts: Awaited<ReturnType<typeof generateDailyPosts>>;
   try {
@@ -65,18 +64,18 @@ export async function GET(req: NextRequest) {
     results.threads = { status: "skipped", error: "Threads not configured" };
   }
 
-  // Twitter/X
-  if (process.env.TWITTER_API_KEY && process.env.TWITTER_ACCESS_TOKEN) {
-    results.twitter = await run(() => postToTwitter(posts.twitter ?? ""));
-  } else {
-    results.twitter = { status: "skipped", error: "Twitter not configured" };
-  }
-
   // Bluesky Personal (Tiána's account)
   if (process.env.BLUESKY_PERSONAL_IDENTIFIER && process.env.BLUESKY_PERSONAL_APP_PASSWORD) {
     results.bluesky_personal = await run(() => postToBlueskyPersonal(posts.bluesky_personal ?? ""));
   } else {
     results.bluesky_personal = { status: "skipped", error: "Personal Bluesky not configured" };
+  }
+
+  // Facebook
+  if (process.env.FACEBOOK_PAGE_ACCESS_TOKEN && process.env.FACEBOOK_PAGE_ID) {
+    results.facebook = await run(() => postToFacebook(posts.facebook ?? ""));
+  } else {
+    results.facebook = { status: "skipped", error: "Facebook not configured" };
   }
 
   // Log all results

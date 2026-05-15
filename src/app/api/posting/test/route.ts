@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
-import { postToTwitter } from "@/lib/twitter";
 import { postToThreads } from "@/lib/facebook";
 import { postToLinkedIn } from "@/lib/linkedin";
 
@@ -10,7 +9,6 @@ const TEST_MESSAGE = "✓ WVW system check — this is a test post from the WVW 
 
 type Platform =
   | "threads"
-  | "twitter"
   | "bluesky"
   | "bluesky_personal"
   | "linkedin_personal"
@@ -18,7 +16,6 @@ type Platform =
 
 const ENV_REQUIRED: Record<Platform, string[]> = {
   threads: ["THREADS_ACCESS_TOKEN", "THREADS_USER_ID"],
-  twitter: ["TWITTER_API_KEY", "TWITTER_API_SECRET", "TWITTER_ACCESS_TOKEN", "TWITTER_ACCESS_SECRET"],
   bluesky: ["BLUESKY_IDENTIFIER", "BLUESKY_APP_PASSWORD"],
   bluesky_personal: ["BLUESKY_PERSONAL_IDENTIFIER", "BLUESKY_PERSONAL_APP_PASSWORD"],
   linkedin_personal: ["LINKEDIN_ACCESS_TOKEN", "LINKEDIN_PERSON_URN"],
@@ -29,9 +26,6 @@ async function runPost(platform: Platform): Promise<void> {
   switch (platform) {
     case "threads":
       await postToThreads(TEST_MESSAGE);
-      break;
-    case "twitter":
-      await postToTwitter(TEST_MESSAGE);
       break;
     case "bluesky":
       await postToBluesky(TEST_MESSAGE);

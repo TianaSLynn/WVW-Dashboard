@@ -1,5 +1,4 @@
 import { postToLinkedIn } from "./linkedin";
-import { postToTwitter } from "./twitter";
 import { postToBluesky, postToBlueskyPersonal } from "./bluesky";
 import { postToFacebook, postToThreads } from "./facebook";
 
@@ -17,8 +16,6 @@ export async function postToPlatform(platform: string, text: string): Promise<vo
       await postToLinkedIn(text, urn);
       return;
     }
-    case "twitter":
-      return postToTwitter(text);
     case "bluesky":
       return postToBluesky(text);
     case "bluesky_personal":

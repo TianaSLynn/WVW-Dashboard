@@ -3,7 +3,6 @@ import { generateBlackExcellence, getTodayBlackExcellenceCategory } from "@/lib/
 import { postToLinkedIn } from "@/lib/linkedin";
 import { postToFacebook, postToThreads } from "@/lib/facebook";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
-import { postToTwitter } from "@/lib/twitter";
 import { appendPostLog } from "@/lib/logger";
 
 export const maxDuration = 60;
@@ -39,13 +38,6 @@ export async function GET(req: NextRequest) {
   const results: Record<string, Result> = {};
 
   // ── Community platforms — educational/honoring content ──
-
-  // Twitter
-  if (process.env.TWITTER_API_KEY && process.env.TWITTER_ACCESS_TOKEN) {
-    results.twitter = await run(() => postToTwitter(posts.twitter));
-  } else {
-    results.twitter = { status: "skipped", error: "Twitter not configured" };
-  }
 
   // Threads
   if (process.env.THREADS_ACCESS_TOKEN && process.env.THREADS_USER_ID) {
@@ -89,8 +81,7 @@ export async function GET(req: NextRequest) {
     void appendPostLog({
       platform,
       theme,
-      text: platform === "twitter" ? posts.twitter
-          : platform === "threads" ? posts.threads
+      text: platform === "threads" ? posts.threads
           : platform === "bluesky_personal" ? posts.bluesky_personal
           : platform === "linkedin_wvw" ? posts.linkedin_wvw
           : platform === "facebook" ? posts.facebook
