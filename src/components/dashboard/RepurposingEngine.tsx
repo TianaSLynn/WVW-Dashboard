@@ -1,8 +1,8 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCcw, Sparkles } from "lucide-react";
+import { Copy, Loader2, RefreshCcw, Sparkles, X } from "lucide-react";
 import type { ContentPost } from "@/types/dashboard";
 import { generateRepurposeRecommendations } from "@/utils/recommendations";
 import { repurposeScore } from "@/utils/calculations";
@@ -20,10 +20,53 @@ const ACTION_COLORS: Record<string, string> = {
   "Turn into client-facing case study": C.charcoal,
 };
 
+function useStream() {
+  const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const run = useCallback(async (url: string, body: object) => {
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setOutput("");
+    setLoading(true);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      if (!res.ok || !res.body) throw new Error(await res.text());
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        setOutput((p) => p + dec.decode(value, { stream: true }));
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        setOutput(`[Error: ${(err as Error).message}]`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const stop = useCallback(() => abortRef.current?.abort(), []);
+  return { output, loading, run, stop, clear: () => setOutput("") };
+}
+
 interface Props { posts: ContentPost[] }
 
 export default function RepurposingEngine({ posts }: Props) {
   const [filter, setFilter] = useState<"All" | "High" | "Medium" | "Low">("All");
+  const [activeRepurpose, setActiveRepurpose] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const stream = useStream();
+
   const recs = useMemo(() => generateRepurposeRecommendations(posts), [posts]);
   const filtered = filter === "All" ? recs : recs.filter((r) => r.priority === filter);
 
@@ -31,6 +74,24 @@ export default function RepurposingEngine({ posts }: Props) {
     [...posts].sort((a, b) => repurposeScore(b) - repurposeScore(a)).slice(0, 5),
     [posts]
   );
+
+  const generate = (rec: ReturnType<typeof generateRepurposeRecommendations>[number]) => {
+    const post = posts.find((p) => p.id === rec.postId);
+    setActiveRepurpose(rec.id);
+    stream.run("/api/generate/repurpose", {
+      postTitle:      rec.postTitle,
+      postPlatform:   rec.platform,
+      topic:          post?.topicCategory ?? "",
+      recommendation: rec.recommendation,
+    });
+  };
+
+  const closePanel = () => {
+    stream.stop();
+    stream.clear();
+    setActiveRepurpose(null);
+    setCopied(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -69,7 +130,7 @@ export default function RepurposingEngine({ posts }: Props) {
                 <RefreshCcw className="w-4 h-4" style={{ color: C.forest }} />
                 Repurpose Recommendations
               </CardTitle>
-              <CardDescription style={{ color: C.charcoal }}>What to do with your best content, ranked by priority.</CardDescription>
+              <CardDescription style={{ color: C.charcoal }}>Click any action button to generate that format with Claude.</CardDescription>
             </div>
             <div className="flex gap-1.5">
               {(["All","High","Medium","Low"] as const).map((p) => (
@@ -83,19 +144,69 @@ export default function RepurposingEngine({ posts }: Props) {
         <CardContent className="space-y-2">
           {filtered.map((rec) => {
             const color = ACTION_COLORS[rec.recommendation] ?? C.charcoal;
+            const isActive = activeRepurpose === rec.id;
             return (
-              <div key={rec.id} className="flex items-start gap-3 p-4 rounded-2xl border" style={{ background: C.ivory, borderColor: "#DDD7CD" }}>
-                <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: color }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: C.warmBlack }}>{rec.postTitle}</p>
-                  <p className="text-xs mt-0.5" style={{ color: C.charcoal }}>{rec.trigger}</p>
+              <div key={rec.id} className="rounded-2xl border overflow-hidden" style={{ borderColor: isActive ? color : "#DDD7CD" }}>
+                <div className="flex items-start gap-3 p-4" style={{ background: C.ivory }}>
+                  <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: C.warmBlack }}>{rec.postTitle}</p>
+                    <p className="text-xs mt-0.5" style={{ color: C.charcoal }}>{rec.trigger}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: rec.priority === "High" ? C.forest+"22" : rec.priority === "Medium" ? C.gold+"33" : "#DDD7CD", color: rec.priority === "High" ? C.forest : C.charcoal }}>
+                      {rec.priority}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => isActive ? closePanel() : generate(rec)}
+                      disabled={stream.loading && !isActive}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-40"
+                      style={{ background: isActive ? color : color+"18", color, borderColor: color }}
+                    >
+                      {isActive && stream.loading
+                        ? <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
+                        : isActive
+                        ? <><X className="w-3 h-3" /> Close</>
+                        : <><Sparkles className="w-3 h-3" /> {rec.recommendation}</>
+                      }
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                  <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: color+"22", color }}>{rec.recommendation}</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: rec.priority === "High" ? C.forest+"22" : rec.priority === "Medium" ? C.gold+"33" : "#DDD7CD", color: rec.priority === "High" ? C.forest : C.charcoal }}>
-                    {rec.priority}
-                  </span>
-                </div>
+
+                {isActive && (
+                  <div className="border-t" style={{ borderColor: color + "44", background: C.bone }}>
+                    <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: `1px solid ${color}22` }}>
+                      <span className="text-xs font-semibold" style={{ color }}>{rec.recommendation}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(stream.output).catch(() => {});
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        disabled={!stream.output || stream.loading}
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl transition-colors disabled:opacity-40"
+                        style={{ background: copied ? color : "#DDD7CD", color: copied ? C.bone : C.charcoal }}
+                      >
+                        <Copy className="w-3 h-3" />
+                        {copied ? "Copied!" : "Copy all"}
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      {stream.loading && !stream.output && (
+                        <div className="flex items-center gap-2 text-xs py-2" style={{ color: C.charcoal }}>
+                          <Loader2 className="w-4 h-4 animate-spin" style={{ color }} /> Generating {rec.recommendation.toLowerCase()}…
+                        </div>
+                      )}
+                      {stream.output && (
+                        <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.charcoal, maxHeight: "20rem", overflowY: "auto" }}>
+                          {stream.output}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
