@@ -404,31 +404,13 @@ export default function WVWCommandCenter() {
   // ── Substack state ──
   const [ssTheme, setSsTheme] = useState("");
   const [ssAngle, setSsAngle] = useState("");
-  const [ssLoading, setSsLoading] = useState(false);
-  const [ssResult, setSsResult] = useState<{ title: string; subtitle: string; content_markdown: string } | null>(null);
-  const [ssError, setSsError] = useState<string | null>(null);
-  const [ssCopied, setSsCopied] = useState(false);
 
   // ── Publish tab state ──
   const [nlSeries, setNlSeries] = useState("Ease, Power, Blackness");
   const [nlTheme, setNlTheme] = useState("");
   const [nlTone, setNlTone] = useState("");
-  const [nlLoading, setNlLoading] = useState(false);
-  const [nlResult, setNlResult] = useState<{
-    generated: { subject: string; preview_text: string; content_html: string };
-    beehiiv: Record<string, unknown> | null;
-  } | null>(null);
-  const [nlError, setNlError] = useState<string | null>(null);
   const [blogTheme, setBlogTheme] = useState("");
   const [blogAngle, setBlogAngle] = useState("");
-  const [blogLoading, setBlogLoading] = useState(false);
-  const [blogResult, setBlogResult] = useState<{
-    title: string;
-    meta_description: string;
-    content_markdown: string;
-  } | null>(null);
-  const [blogError, setBlogError] = useState<string | null>(null);
-  const [blogCopied, setBlogCopied] = useState(false);
 
   // ── Content queue ──
   type QueueItem = { id: string; platform: string; theme: string; text: string; status: string; created_at: string };
@@ -494,9 +476,18 @@ export default function WVWCommandCenter() {
   const [testPosting, setTestPosting] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, { status: string; error?: string; reason?: string }>>({});
 
-  const themeStream  = useStream();
-  const wisdomStream = useStream();
-  const activeStream = modal?.title.includes("Theme") ? themeStream : wisdomStream;
+  const themeStream    = useStream();
+  const wisdomStream   = useStream();
+  const nlStream       = useStream();
+  const ssStream       = useStream();
+  const blogStream     = useStream();
+  const signalStream   = useStream();
+  const activeStream = modal?.title.includes("Theme") ? themeStream
+    : modal?.title.includes("Newsletter") ? nlStream
+    : modal?.title.includes("Substack") ? ssStream
+    : modal?.title.includes("Blog") ? blogStream
+    : modal?.title.includes("Signal") ? signalStream
+    : wisdomStream;
 
   // ── Fetch real content data ──
   useEffect(() => {
@@ -841,67 +832,27 @@ export default function WVWCommandCenter() {
     }
   };
 
-  const generateSubstack = async () => {
+  const generateSubstack = () => {
     if (!ssTheme.trim()) return;
-    setSsLoading(true);
-    setSsResult(null);
-    setSsError(null);
-    try {
-      const res = await fetch("/api/substack/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme: ssTheme, angle: ssAngle || undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Generation failed");
-      setSsResult(data as typeof ssResult);
-    } catch (err) {
-      setSsError((err as Error).message);
-    } finally {
-      setSsLoading(false);
-    }
+    setModal({ title: "Substack Essay — " + ssTheme });
+    ssStream.run("/api/substack/generate", { theme: ssTheme, angle: ssAngle || undefined });
   };
 
-  const generateNewsletter = async () => {
+  const generateNewsletter = () => {
     if (!nlTheme.trim()) return;
-    setNlLoading(true);
-    setNlResult(null);
-    setNlError(null);
-    try {
-      const res = await fetch("/api/newsletter/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ series: nlSeries, theme: nlTheme, tone: nlTone || undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Generation failed");
-      setNlResult(data as typeof nlResult);
-    } catch (err) {
-      setNlError((err as Error).message);
-    } finally {
-      setNlLoading(false);
-    }
+    setModal({ title: "Newsletter — " + nlSeries });
+    nlStream.run("/api/newsletter/create", { series: nlSeries, theme: nlTheme, tone: nlTone || undefined });
   };
 
-  const generateBlog = async () => {
+  const generateBlog = () => {
     if (!blogTheme.trim()) return;
-    setBlogLoading(true);
-    setBlogResult(null);
-    setBlogError(null);
-    try {
-      const res = await fetch("/api/blog/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme: blogTheme, angle: blogAngle || undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Generation failed");
-      setBlogResult(data as typeof blogResult);
-    } catch (err) {
-      setBlogError((err as Error).message);
-    } finally {
-      setBlogLoading(false);
-    }
+    setModal({ title: "Blog Post — " + blogTheme });
+    blogStream.run("/api/blog/generate", { theme: blogTheme, angle: blogAngle || undefined });
+  };
+
+  const generateFromSignal = (theme: string, action: string) => {
+    setModal({ title: `Signal Content — ${theme.slice(0, 45)}${theme.length > 45 ? "…" : ""}` });
+    signalStream.run("/api/generate/signal", { theme, action });
   };
 
   // ── Claude: generate theme pack ──
@@ -1326,13 +1277,24 @@ export default function WVWCommandCenter() {
                               <MomentumBadge level={signal.momentum} />
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                             <span
                               className="text-xs px-3 py-1.5 rounded-full border"
                               style={{ borderColor: C.gold, color: C.charcoal }}
                             >
                               {signal.action}
                             </span>
+                            <button
+                              onClick={() => generateFromSignal(signal.theme, signal.action)}
+                              disabled={signalStream.loading}
+                              className="text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-40 flex items-center gap-1"
+                              style={{ borderColor: C.gold, color: C.charcoal, background: C.ivory }}
+                            >
+                              {signalStream.loading
+                                ? <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
+                                : <><Sparkles className="w-3 h-3" style={{ color: C.gold }} /> Generate</>
+                              }
+                            </button>
                             <button
                               onClick={() => setThemeOfMonth(signal.theme)}
                               disabled={settingTheme || themeOfMonth === signal.theme}
@@ -1343,7 +1305,7 @@ export default function WVWCommandCenter() {
                               }
                               title="Set as Theme of Month"
                             >
-                              {themeOfMonth === signal.theme ? "✓ Theme of Month" : "Set as Month Theme"}
+                              {themeOfMonth === signal.theme ? "✓ Theme" : "Set Theme"}
                             </button>
                           </div>
                         </div>
@@ -2242,48 +2204,14 @@ export default function WVWCommandCenter() {
                       className="w-full rounded-2xl"
                       style={{ background: C.forest, color: C.bone }}
                       onClick={generateNewsletter}
-                      disabled={nlLoading || !nlTheme.trim()}
+                      disabled={nlStream.loading || !nlTheme.trim()}
                     >
-                      {nlLoading
+                      {nlStream.loading
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</>
-                        : <><Mail className="w-4 h-4 mr-2" /> Generate + Send to Beehiiv</>
+                        : <><Mail className="w-4 h-4 mr-2" /> Generate Newsletter</>
                       }
                     </Button>
-
-                    {nlError && (
-                      <p className="text-xs text-center" style={{ color: C.rose }}>{nlError}</p>
-                    )}
-
-                    {nlResult && (
-                      <div className="space-y-3 pt-1">
-                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
-                          <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Subject</p>
-                          <p className="text-sm font-medium">{nlResult.generated.subject}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
-                          <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Preview Text</p>
-                          <p className="text-sm">{nlResult.generated.preview_text}</p>
-                        </div>
-                        <div
-                          className="p-3 rounded-2xl text-xs flex items-center gap-2"
-                          style={{
-                            background: nlResult.beehiiv && !("error" in nlResult.beehiiv)
-                              ? C.forest + "18"
-                              : C.rose + "22",
-                            color: C.charcoal,
-                          }}
-                        >
-                          {nlResult.beehiiv && !("error" in nlResult.beehiiv)
-                            ? <><CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: C.forest }} /> Draft created in Beehiiv — review and send from app.beehiiv.com</>
-                            : <><AlertCircle className="w-4 h-4 shrink-0" style={{ color: C.rose }} />
-                                {nlResult.beehiiv
-                                  ? String(nlResult.beehiiv.error ?? "Beehiiv error")
-                                  : "Add BEEHIIV_API_KEY and BEEHIIV_PUBLICATION_ID to .env.local"}
-                              </>
-                          }
-                        </div>
-                      </div>
-                    )}
+                    <p className="text-xs text-center" style={{ color: C.charcoal }}>Opens in a panel — copy subject, preview, and body directly into Beehiiv.</p>
                   </CardContent>
                 </Card>
 
@@ -2331,63 +2259,14 @@ export default function WVWCommandCenter() {
                       className="w-full rounded-2xl"
                       style={{ background: C.forest, color: C.bone }}
                       onClick={generateBlog}
-                      disabled={blogLoading || !blogTheme.trim()}
+                      disabled={blogStream.loading || !blogTheme.trim()}
                     >
-                      {blogLoading
+                      {blogStream.loading
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</>
                         : <><BookOpen className="w-4 h-4 mr-2" /> Generate Blog Post</>
                       }
                     </Button>
-
-                    {blogError && (
-                      <p className="text-xs text-center" style={{ color: C.rose }}>{blogError}</p>
-                    )}
-
-                    {blogResult && (
-                      <div className="space-y-3 pt-1">
-                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
-                          <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Title</p>
-                          <p className="text-sm font-medium font-serif">{blogResult.title}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
-                          <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Meta Description</p>
-                          <p className="text-sm">{blogResult.meta_description}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-medium" style={{ color: C.charcoal }}>Blog Content</p>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(blogResult.content_markdown).catch(() => {});
-                                setBlogCopied(true);
-                                setTimeout(() => setBlogCopied(false), 2000);
-                              }}
-                              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl transition-colors"
-                              style={{
-                                background: blogCopied ? C.forest : "#DDD7CD",
-                                color: blogCopied ? C.bone : C.charcoal,
-                              }}
-                            >
-                              <Copy className="w-3 h-3" />
-                              {blogCopied ? "Copied!" : "Copy all"}
-                            </button>
-                          </div>
-                          <pre
-                            className="text-xs leading-relaxed whitespace-pre-wrap overflow-y-auto"
-                            style={{ color: C.charcoal, maxHeight: "16rem" }}
-                          >
-                            {blogResult.content_markdown}
-                          </pre>
-                        </div>
-                        <div
-                          className="p-3 rounded-2xl text-xs flex items-start gap-2"
-                          style={{ background: C.gold + "22", color: C.charcoal }}
-                        >
-                          <Globe className="w-4 h-4 shrink-0 mt-0.5" style={{ color: C.gold }} />
-                          <span>Copy the content above → go to GoDaddy Website Builder → add a new blog post → paste the body. Use the title and meta description for SEO fields.</span>
-                        </div>
-                      </div>
-                    )}
+                    <p className="text-xs text-center" style={{ color: C.charcoal }}>Opens in a panel — copy title, meta description, and full body into GoDaddy.</p>
                   </CardContent>
                 </Card>
 
@@ -2433,65 +2312,22 @@ export default function WVWCommandCenter() {
                         className="w-full rounded-2xl"
                         style={{ background: C.forest, color: C.bone }}
                         onClick={generateSubstack}
-                        disabled={ssLoading || !ssTheme.trim()}
+                        disabled={ssStream.loading || !ssTheme.trim()}
                       >
-                        {ssLoading
+                        {ssStream.loading
                           ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</>
                           : <><Globe className="w-4 h-4 mr-2" /> Generate Substack Essay</>
                         }
                       </Button>
-                      {ssError && <p className="text-xs text-center" style={{ color: C.rose }}>{ssError}</p>}
+                      <p className="text-xs text-center" style={{ color: C.charcoal }}>Opens in a panel — copy title, subtitle, and body directly into Substack.</p>
                     </div>
 
-                    {ssResult ? (
-                      <div className="xl:col-span-2 space-y-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
-                            <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Title</p>
-                            <p className="text-sm font-medium font-serif">{ssResult.title}</p>
-                          </div>
-                          <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
-                            <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Subtitle</p>
-                            <p className="text-sm italic">{ssResult.subtitle}</p>
-                          </div>
-                        </div>
-                        <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-medium" style={{ color: C.charcoal }}>Essay Body</p>
-                            <button
-                              onClick={() => {
-                                const full = `# ${ssResult.title}\n\n*${ssResult.subtitle}*\n\n${ssResult.content_markdown}`;
-                                navigator.clipboard.writeText(full).catch(() => {});
-                                setSsCopied(true);
-                                setTimeout(() => setSsCopied(false), 2000);
-                              }}
-                              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl transition-colors"
-                              style={{
-                                background: ssCopied ? C.forest : "#DDD7CD",
-                                color: ssCopied ? C.bone : C.charcoal,
-                              }}
-                            >
-                              <Copy className="w-3 h-3" />
-                              {ssCopied ? "Copied!" : "Copy all"}
-                            </button>
-                          </div>
-                          <pre className="text-xs leading-relaxed whitespace-pre-wrap overflow-y-auto" style={{ color: C.charcoal, maxHeight: "16rem" }}>
-                            {ssResult.content_markdown}
-                          </pre>
-                        </div>
-                        <div className="p-3 rounded-2xl text-xs flex items-start gap-2" style={{ background: C.gold + "22", color: C.charcoal }}>
-                          <Globe className="w-4 h-4 shrink-0 mt-0.5" style={{ color: C.gold }} />
-                          <span>Go to substack.com → New Post → paste the title, subtitle, and body. The essay is formatted in markdown, which Substack renders automatically.</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        className="xl:col-span-2 flex items-center justify-center rounded-2xl p-8 text-sm"
-                        style={{ background: C.ivory, color: C.charcoal }}
-                      >
-                        Your generated essay will appear here.
-                      </div>
-                    )}
+                    <div
+                      className="xl:col-span-2 flex items-center justify-center rounded-2xl p-8 text-sm"
+                      style={{ background: C.ivory, color: C.charcoal }}
+                    >
+                      Enter a theme and click Generate — the full essay will open in a panel.
+                    </div>
                   </div>
                 </CardContent>
               </Card>

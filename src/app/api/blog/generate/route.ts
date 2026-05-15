@@ -33,40 +33,64 @@ export async function POST(req: NextRequest) {
 Theme: "${theme}"${angle ? `\nAngle: ${angle}` : ""}
 
 Structure:
-- Title (declarative, specific — not clickbait, not generic)
-- Meta description (150 chars, SEO-friendly)
-- Opening paragraph (hook — specific truth, named moment, structural observation. 2–3 sentences)
-- Body (5–7 paragraphs — named problem → structural analysis → what's actually happening → what shifts when you see it clearly)
-- Closing paragraph (grounded — does not end with "in conclusion")
-- CTA (1 sentence: invite to consult, DM, or read more — soft, not desperate)
+TITLE: [declarative, specific — not clickbait, not generic]
+META: [150 chars, SEO-friendly meta description]
 
-Return ONLY valid JSON starting with {:
-{
-  "title": "...",
-  "meta_description": "...",
-  "content_markdown": "Full blog post in markdown here..."
-}`;
+---
 
-  const msg = await claude.messages.create({
-    model: "claude-opus-4-6",
-    max_tokens: 3000,
-    system: SYSTEM,
-    messages: [{ role: "user", content: prompt }],
+[Opening paragraph: hook — specific truth, named moment, structural observation. 2–3 sentences]
+
+[Body: 5–7 paragraphs — named problem → structural analysis → what's actually happening → what shifts when you see it clearly]
+
+[Closing paragraph: grounded — does not end with "in conclusion"]
+
+CTA: [1 sentence: invite to consult, DM, or read more — soft, not desperate]
+
+Write the full blog post now. Start immediately with TITLE: — no preamble.`;
+
+  const encoder = new TextEncoder();
+  let fullText = "";
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const anthropicStream = await claude.messages.stream({
+          model: "claude-opus-4-6",
+          max_tokens: 3000,
+          system: SYSTEM,
+          messages: [{ role: "user", content: prompt }],
+        });
+
+        for await (const chunk of anthropicStream) {
+          if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+            fullText += chunk.delta.text;
+            controller.enqueue(encoder.encode(chunk.delta.text));
+          }
+        }
+
+        // Save to Supabase in background after streaming completes
+        const titleMatch = fullText.match(/^TITLE:\s*(.+)/m);
+        const metaMatch  = fullText.match(/^META:\s*(.+)/m);
+        const title = titleMatch?.[1]?.trim() ?? theme;
+        const meta  = metaMatch?.[1]?.trim() ?? "";
+        const slug  = `${slugify(title)}-${Date.now().toString(36)}`;
+
+        void supabase.from("blog_posts").insert({
+          title, slug, meta_description: meta, content_markdown: fullText, theme, source: "dashboard",
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Generation failed";
+        controller.enqueue(encoder.encode(`\n\n[Error: ${msg}]`));
+      } finally {
+        controller.close();
+      }
+    },
   });
 
-  const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) return Response.json({ error: "Generation failed" }, { status: 500 });
-
-  const post = JSON.parse(match[0]) as { title: string; meta_description: string; content_markdown: string };
-
-  // Auto-save to Supabase
-  const slug = `${slugify(post.title)}-${Date.now().toString(36)}`;
-  const { data: saved } = await supabase
-    .from("blog_posts")
-    .insert({ title: post.title, slug, meta_description: post.meta_description, content_markdown: post.content_markdown, theme, source: "dashboard" })
-    .select("slug")
-    .single();
-
-  return Response.json({ ...post, slug: saved?.slug ?? slug, blogUrl: `/blog/${saved?.slug ?? slug}` });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+    },
+  });
 }
