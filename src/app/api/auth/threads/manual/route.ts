@@ -11,45 +11,59 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const appSecret = process.env.THREADS_APP_SECRET;
-  if (!appSecret) {
-    return new Response(errorPage("THREADS_APP_SECRET not set in Vercel environment variables."), {
+  try {
+    const appSecret = process.env.THREADS_APP_SECRET;
+
+    let finalToken = shortToken;
+    let expiresNote = "token from Graph API Explorer — add to Vercel quickly";
+
+    // Try to exchange for long-lived if app secret available
+    if (appSecret) {
+      try {
+        const longRes = await fetch(
+          `https://graph.threads.net/access_token?${new URLSearchParams({
+            grant_type: "th_exchange_token",
+            client_secret: appSecret,
+            access_token: shortToken,
+          })}`
+        );
+        if (longRes.ok) {
+          const longData = await longRes.json() as { access_token?: string; expires_in?: number };
+          if (longData.access_token) {
+            finalToken = longData.access_token;
+            const days = longData.expires_in ? Math.round(longData.expires_in / 86400) : 60;
+            expiresNote = `long-lived — expires in ~${days} days`;
+          }
+        }
+      } catch {
+        // exchange failed — use original token
+      }
+    }
+
+    // Get user ID
+    let userId = "";
+    let username = "your account";
+    try {
+      const profileRes = await fetch(
+        `https://graph.threads.net/v1.0/me?fields=id,username&access_token=${finalToken}`
+      );
+      if (profileRes.ok) {
+        const p = await profileRes.json() as { id?: string; username?: string };
+        userId = p.id ?? "";
+        username = p.username ?? "your account";
+      }
+    } catch {
+      // profile fetch failed — show token anyway
+    }
+
+    return new Response(successPage(finalToken, userId, username, expiresNote), {
+      headers: { "Content-Type": "text/html" },
+    });
+  } catch (err) {
+    return new Response(errorPage(`Unexpected error: ${String(err)}`), {
       headers: { "Content-Type": "text/html" },
     });
   }
-
-  // Exchange short-lived token for long-lived (60 days)
-  const longRes = await fetch(
-    `https://graph.threads.net/access_token?${new URLSearchParams({
-      grant_type: "th_exchange_token",
-      client_secret: appSecret,
-      access_token: shortToken,
-    })}`
-  );
-
-  let finalToken = shortToken;
-  let expiresNote = "short-lived (~1 hour) — exchange failed, use it quickly";
-
-  if (longRes.ok) {
-    const longData = await longRes.json() as { access_token?: string; expires_in?: number };
-    if (longData.access_token) {
-      finalToken = longData.access_token;
-      const days = longData.expires_in ? Math.round(longData.expires_in / 86400) : 60;
-      expiresNote = `long-lived — expires in ~${days} days`;
-    }
-  }
-
-  // Get user ID
-  const profileRes = await fetch(
-    `https://graph.threads.net/v1.0/me?fields=id,username&access_token=${finalToken}`
-  );
-  const profile = profileRes.ok
-    ? await profileRes.json() as { id?: string; username?: string }
-    : {};
-
-  return new Response(successPage(finalToken, profile.id ?? "", profile.username ?? "your account", expiresNote), {
-    headers: { "Content-Type": "text/html" },
-  });
 }
 
 function instructionsPage(origin: string): string {
