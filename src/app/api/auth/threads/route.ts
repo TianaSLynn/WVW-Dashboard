@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   const origin = new URL(req.url).origin;
-  const redirectUri = `${origin}/api/auth/threads/callback`;
+  const redirectUri = `${origin}/api/auth/threads/oauth`;
 
   const params = new URLSearchParams({
     client_id: appId,
