@@ -4,6 +4,7 @@ import { readPostLog } from "@/lib/logger";
 export async function GET() {
   const connections = {
     anthropic_key:     !!process.env.ANTHROPIC_API_KEY,
+    anthropic_key_hint: (() => { const k = process.env.ANTHROPIC_API_KEY ?? ""; return k ? `${k.slice(0, 14)}...${k.slice(-4)} (${k.length} chars)` : "not set"; })(),
     linkedin_token:    !!process.env.LINKEDIN_ACCESS_TOKEN,
     linkedin_person:   !!process.env.LINKEDIN_PERSON_URN,
     linkedin_org:      !!process.env.LINKEDIN_ORG_URN,

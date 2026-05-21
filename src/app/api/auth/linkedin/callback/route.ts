@@ -98,11 +98,11 @@ function successPage(token: string, personUrn: string, name: string, expires: st
 
     <div class="instructions">
       <strong>Next steps:</strong><br/>
-      1. Copy both values above into <code>.env.local</code><br/>
-      2. Restart the dev server (<code>npm run dev</code>)<br/>
-      3. For WVW Company Page posts, also set <code>LINKEDIN_ORG_URN=urn:li:organization:YOUR_ORG_ID</code><br/>
-      &nbsp;&nbsp;&nbsp;(find your org ID in the URL of your LinkedIn company page)<br/>
-      4. Click &ldquo;Post Today&rsquo;s Content Now&rdquo; in the Auto-Post tab to test
+      1. Copy both values above<br/>
+      2. Go to <strong>Vercel → Settings → Environment Variables</strong><br/>
+      3. Update <code>LINKEDIN_ACCESS_TOKEN</code> and <code>LINKEDIN_PERSON_URN</code><br/>
+      4. LinkedIn tokens expire in <strong>60 days</strong> — bookmark this page for renewal<br/>
+      5. Return to your dashboard and try posting again
     </div>
 
     <button class="close-btn" onclick="window.close()">Close this window</button>

@@ -45,6 +45,9 @@ import ConversionEngine       from "@/components/dashboard/ConversionEngine";
 import ExperimentBoard        from "@/components/dashboard/ExperimentBoard";
 import RepurposingEngine      from "@/components/dashboard/RepurposingEngine";
 import ReportsSection         from "@/components/dashboard/ReportsSection";
+import WebsiteAnalytics       from "@/components/dashboard/WebsiteAnalytics";
+import NewsletterAnalytics    from "@/components/dashboard/NewsletterAnalytics";
+import AssessmentResults      from "@/components/dashboard/AssessmentResults";
 import { samplePosts, sampleAudience, sampleConversions, sampleExperiments } from "@/data/sampleData";
 import type { CommunityInteraction } from "@/types/dashboard";
 import { Button } from "@/components/ui/button";
@@ -58,16 +61,33 @@ import {
   PolarAngleAxis, PolarRadiusAxis, Radar,
 } from "recharts";
 
-// ─── Brand colours ────────────────────────────────────────────────
+// ─── Emil Kowalski spring physics system ─────────────────────────
+const SPRING = { type: "spring", stiffness: 320, damping: 28 } as const;
+const SPRING_SLOW = { type: "spring", stiffness: 200, damping: 30 } as const;
+const FADE_BLUR = { initial: { opacity: 0, filter: "blur(8px)", y: 6 }, animate: { opacity: 1, filter: "blur(0px)", y: 0 }, exit: { opacity: 0, filter: "blur(4px)", y: -4 }, transition: SPRING };
+const STAGGER = (i: number) => ({ ...SPRING, delay: i * 0.055 });
+const cardHover = { whileHover: { y: -3, boxShadow: "0 12px 32px rgba(28,58,42,0.10)" }, transition: SPRING };
+const btnTap = { whileTap: { scale: 0.94 }, transition: SPRING };
+
+// ─── Brand colours (Notion-light + WVW accents) ───────────────────
 const C = {
   forest:    "#1C3A2A",
-  warmBlack: "#1A1714",
-  bone:      "#F5F0E8",
+  warmBlack: "#37352F",
+  bone:      "#F7F7F5",
   rose:      "#C4A09A",
   gold:      "#B8A06A",
-  charcoal:  "#3D3935",
+  charcoal:  "#787774",
   sage:      "#4A5E4F",
-  ivory:     "#F9F5ED",
+  ivory:     "#FFFFFF",
+};
+const N = {
+  bg:      "#FFFFFF",
+  sidebar: "#F7F7F5",
+  hover:   "rgba(55,53,47,0.06)",
+  active:  "rgba(55,53,47,0.10)",
+  border:  "rgba(55,53,47,0.09)",
+  text:    "#37352F",
+  muted:   "#787774",
 };
 
 // ─── Static reference data ────────────────────────────────────────
@@ -159,6 +179,7 @@ interface PostLogEntry {
   theme: string;
   excerpt: string;
   status: "posted" | "queued" | "error" | "skipped";
+  error_detail?: string;
 }
 
 interface PostingStatus {
@@ -215,6 +236,35 @@ function MomentumBadge({ level }: { level: string }) {
     ? "bg-[#1C3A2A] text-[#F5F0E8]"
     : "bg-[#B8A06A]/20 text-[#3D3935]";
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${color}`}>{level}</span>;
+}
+
+// ─── Sidebar nav item ─────────────────────────────────────────────
+function SidebarItem({ emoji, label, active, onClick }: { emoji: string; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ x: 3, backgroundColor: active ? N.active : N.hover }}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: "spring", stiffness: 320, damping: 28 }}
+      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-left relative overflow-hidden"
+      style={{
+        background: active ? N.active : "transparent",
+        color: active ? N.text : N.muted,
+        fontWeight: active ? 600 : 400,
+      }}
+    >
+      {active && (
+        <motion.div
+          layoutId="sidebarActive"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
+          style={{ background: "#1C3A2A" }}
+          transition={{ type: "spring", stiffness: 320, damping: 28 }}
+        />
+      )}
+      <span className="text-base leading-none">{emoji}</span>
+      <span className="truncate">{label}</span>
+    </motion.button>
+  );
 }
 
 // ─── Output modal ─────────────────────────────────────────────────
@@ -366,6 +416,42 @@ function MonthPlanDisplay({ raw, loading }: { raw: string; loading: boolean }) {
   );
 }
 
+// ─── Celebration burst overlay ────────────────────────────────────
+function CelebrationBurst({ message, onDone }: { message: string; onDone: () => void }) {
+  React.useEffect(() => { const t = setTimeout(onDone, 3200); return () => clearTimeout(t); }, [onDone]);
+  const particles = ["✨","🌟","💜","🎉","👑","🌿","💫","🙌🏾","🔥","⭐","💜","✨","🌸","🎊","💎","🦄","🌈","💐"];
+  return (
+    <motion.div className="fixed inset-0 z-[300] pointer-events-none flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      {particles.map((e, i) => {
+        const angle = (i / particles.length) * 360;
+        const dist = 140 + (i % 4) * 55;
+        const x = Math.cos((angle * Math.PI) / 180) * dist;
+        const y = Math.sin((angle * Math.PI) / 180) * dist;
+        return (
+          <motion.span key={i} className="absolute text-4xl select-none"
+            initial={{ x: 0, y: 0, opacity: 1, scale: 0, rotate: 0 }}
+            animate={{ x, y, opacity: [1, 1, 0], scale: [0, 1.6, 1], rotate: [0, 25, -15] }}
+            transition={{ type: "spring", stiffness: 280, damping: 20, delay: i * 0.035 }}>
+            {e}
+          </motion.span>
+        );
+      })}
+      <motion.div
+        className="px-10 py-6 rounded-3xl text-center shadow-2xl z-10 border"
+        style={{ background: "linear-gradient(135deg, #1C3A2A, #2D5A40)", color: "#F5F0E8", borderColor: "#B8A06A44" }}
+        initial={{ scale: 0, opacity: 0, y: 20 }}
+        animate={{ scale: [0, 1.1, 0.97, 1], opacity: [0, 1, 1, 1, 0], y: [20, 0, 0, 0, -10] }}
+        transition={{ duration: 2.8, times: [0, 0.2, 0.5, 0.75, 1] }}>
+        <motion.p
+          className="font-serif text-2xl font-semibold"
+          animate={{ scale: [1, 1.03, 1] }}
+          transition={{ repeat: 2, duration: 0.6, ease: "easeInOut" }}
+        >{message}</motion.p>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────
 export default function WVWCommandCenter() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -424,6 +510,161 @@ export default function WVWCommandCenter() {
   const [queueGenResult, setQueueGenResult] = useState<string | null>(null);
   const [alertGenerating, setAlertGenerating] = useState<Record<number, boolean>>({});
   const [alertGenResult, setAlertGenResult] = useState<Record<number, string>>({});
+
+  // ── Cron activity banner ──
+  const [cronBanner, setCronBanner] = useState<{ posted: number; failed: number; label: string; since: string } | null>(null);
+
+  // ── Life OS ──
+  type Habit = { id: string; name: string; emoji: string; category: string; sort_order: number };
+  type HabitLog = { id: string; habit_id: string; logged_date: string };
+  type Task = { id: string; title: string; priority: string; category: string; status: string; due_date?: string; notes?: string; completed_at?: string };
+  type WeekPlan = { week_start: string; main_focus: string; goals: string[]; word_of_week: string; intentions: string };
+  type TodayIntention = { id?: string; date: string; top3?: string[]; energy_level?: number; nervous_system?: string; morning_note?: string; evening_note?: string; gratitude?: string[]; wins?: string[]; brain_dump?: string; one_thing?: string; social_battery?: number; mood?: string; recharge?: string; alignment_note?: string };
+  type RecentIntention = { date: string; energy_level?: number; nervous_system?: string; mood?: string; social_battery?: number };
+  type Book = { id: string; title: string; author?: string; status: string; genre?: string; started_at?: string; completed_at?: string; rating?: number; cover_url?: string; media_type?: string; notes?: string };
+  type BucketItem = { id: string; title: string; category: string; notes?: string; completed: boolean; completed_at?: string };
+  type WaterLog = { id: string; date: string; cups: number; goal_cups: number };
+  type Medication = { id: string; name: string; dose?: string; frequency: string; active: boolean; sort_order: number; when_to_take?: string; symptoms_to_track?: string[]; notes?: string };
+  type MedLog = { id: string; date: string; medication_name: string; taken: boolean; taken_at?: string; symptoms: string[]; notes?: string };
+  type SpiritSign = { id: string; category: string; name: string; meaning: string; hoodoo_context?: string; personal_notes?: string; is_reference: boolean };
+  type SleepLog = { id: string; date: string; hours?: number; quality?: number; notes?: string; bedtime?: string; wake_time?: string };
+  type MonthlyReview = { id?: string; month: string; word_of_month?: string; top_goals?: string[]; goals_completed?: boolean[]; big_wins?: string[]; growth_areas?: string[]; grateful_for?: string[]; reflection?: string };
+  type QuarterlyReview = { id?: string; quarter: string; year: number; quarter_num: number; revenue_target?: number; revenue_actual?: number; new_clients?: number; leads_generated?: number; savings_target?: number; savings_actual?: number; quarterly_goals?: string[]; goals_status?: string[]; what_worked?: string; what_to_change?: string; next_quarter_focus?: string; personal_reflection?: string; relationships_reflection?: string; wellbeing_reflection?: string; alignment_score?: number };
+  type AnnualReview = { id?: string; year: number; word_of_year?: string; vision_statement?: string; focus_buckets?: Array<{ label: string; description: string; wins: string; grow: string }>; reset_q1?: string; reset_q2?: string; reset_q3?: string; reset_q4?: string; big_wins?: string[]; releasing?: string[]; calling_in?: string[] };
+  type LifeData = { habits: Habit[]; habitLogs: HabitLog[]; habitLogsMonth: HabitLog[]; tasks: Task[]; weekPlan: WeekPlan | null; todayIntention: TodayIntention | null; books: Book[]; bucketList: BucketItem[]; waterLog: WaterLog | null; medications: Medication[]; medLogs: MedLog[]; spiritSigns: SpiritSign[]; sleepLog: SleepLog | null; monthlyReview: MonthlyReview | null; quarterlyReview: QuarterlyReview | null; annualReview: AnnualReview | null; recentIntentions: RecentIntention[]; today: string; weekStart: string; monthStart: string; currentMonth: string; currentQuarter: string; currentYear: number };
+
+  const [lifeData, setLifeData] = useState<LifeData | null>(null);
+  const [lifeLoading, setLifeLoading] = useState(false);
+  const [lifeTab, setLifeTab] = useState<"today"|"habits"|"tasks"|"weekly"|"monthly"|"quarterly"|"annual"|"library"|"bucket"|"wellness"|"spiritual">("today");
+  const [newTask, setNewTask] = useState({ title: "", priority: "medium", category: "personal", due_date: "" });
+  const [addingTask, setAddingTask] = useState(false);
+  const [newBook, setNewBook] = useState({ title: "", author: "", genre: "", cover_url: "", media_type: "book" });
+  const [addingBook, setAddingBook] = useState(false);
+  const [newBucket, setNewBucket] = useState({ title: "", category: "experience" });
+  const [addingBucket, setAddingBucket] = useState(false);
+  const [weekEdit, setWeekEdit] = useState(false);
+  const [weekDraft, setWeekDraft] = useState({ main_focus: "", goals: ["","","",""], word_of_week: "", intentions: "" });
+  const [intentionEdit, setIntentionEdit] = useState(false);
+  const [intentionDraft, setIntentionDraft] = useState({ top3: ["","",""], energy_level: 3, nervous_system: "regulated", morning_note: "", evening_note: "", gratitude: ["","",""], social_battery: 3, mood: "", recharge: "", alignment_note: "", one_thing: "" });
+  const [oneThing, setOneThing] = useState("");
+  const [oneThingSaved, setOneThingSaved] = useState(false);
+  const oneThingTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [habitJustLogged, setHabitJustLogged] = useState<Set<string>>(new Set());
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  // Monthly / Quarterly / Annual review drafts
+  const [monthDraft, setMonthDraft] = useState({ word_of_month: "", top_goals: ["","",""], goals_completed: [false,false,false], big_wins: ["",""], growth_areas: ["",""], grateful_for: ["",""], reflection: "" });
+  const [monthSaved, setMonthSaved] = useState(false);
+  const [quarterDraft, setQuarterDraft] = useState({ revenue_target: "", revenue_actual: "", new_clients: "", leads_generated: "", savings_target: "", savings_actual: "", quarterly_goals: ["","",""], goals_status: ["","",""], what_worked: "", what_to_change: "", next_quarter_focus: "", personal_reflection: "", relationships_reflection: "", wellbeing_reflection: "", alignment_score: 0 });
+  const [quarterSaved, setQuarterSaved] = useState(false);
+  const [annualDraft, setAnnualDraft] = useState({ word_of_year: "", vision_statement: "", focus_buckets: [{ label: "Business", description: "", wins: "", grow: "" }, { label: "Health", description: "", wins: "", grow: "" }, { label: "Relationships", description: "", wins: "", grow: "" }, { label: "Personal Growth", description: "", wins: "", grow: "" }], reset_q1: "", reset_q2: "", reset_q3: "", reset_q4: "", big_wins: ["","",""], releasing: ["",""], calling_in: ["",""] });
+  const [annualSaved, setAnnualSaved] = useState(false);
+  // Wellness state
+  const [waterCups, setWaterCups] = useState(0);
+  const [waterGoal] = useState(8);
+  const [spiritCategory, setSpiritCategory] = useState("All");
+  const [spiritSearch, setSpiritSearch] = useState("");
+  const [spiritExpanded, setSpiritExpanded] = useState<string | null>(null);
+  const [newSign, setNewSign] = useState({ category: "Omens", name: "", meaning: "", hoodoo_context: "", personal_notes: "" });
+  const [addingSign, setAddingSign] = useState(false);
+  const [libFilter, setLibFilter] = useState<"all"|"book"|"audiobook"|"album">("all");
+  const [libStatus, setLibStatus] = useState<"all"|"reading"|"completed"|"want_to_read">("all");
+  // Sleep
+  const [sleepDraft, setSleepDraft] = useState({ hours: "", quality: 0, bedtime: "", wake_time: "", notes: "" });
+  const [sleepSaved, setSleepSaved] = useState(false);
+  // Medication autocomplete
+  type MedInfo = { normalizedName: string; commonBrands: string[]; commonDoses: string[]; whenToTake: string; frequency: string; symptomsToTrack: string[]; notes: string; found: boolean };
+  const [medSearchQuery, setMedSearchQuery] = useState("");
+  const [medSearchResult, setMedSearchResult] = useState<MedInfo | null>(null);
+  const [medSearchLoading, setMedSearchLoading] = useState(false);
+  const [newMedForm, setNewMedForm] = useState({ name: "", dose: "", frequency: "daily", when_to_take: "", symptoms_to_track: [] as string[], notes: "" });
+  const [addingMedFull, setAddingMedFull] = useState(false);
+  const medSearchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lifeSaveError, setLifeSaveError] = useState<string | null>(null);
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsLastSent, setSmsLastSent] = useState<string | null>(null);
+  const [smsPreview, setSmsPreview] = useState<string | null>(null);
+  const [eveningSending, setEveningSending] = useState(false);
+  const [eveningPreview, setEveningPreview] = useState<string | null>(null);
+  // Focus timer (Pomodoro)
+  const [focusMinutes, setFocusMinutes] = useState(25);
+  const [focusSeconds, setFocusSeconds] = useState(0);
+  const [focusActive, setFocusActive] = useState(false);
+  const [focusMode, setFocusMode] = useState<"work"|"break">("work");
+  const focusInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  // Brain dump
+  const [brainDump, setBrainDump] = useState("");
+  const [brainDumpSaved, setBrainDumpSaved] = useState(false);
+  const brainDumpTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Celebration
+  const [celebration, setCelebration] = useState<{ message: string; show: boolean }>({ message: "", show: false });
+  const triggerCelebration = React.useCallback((message: string) => {
+    setCelebration({ message, show: true });
+    setTimeout(() => setCelebration((s) => ({ ...s, show: false })), 2800);
+  }, []);
+
+  const loadLifeData = React.useCallback(() => {
+    setLifeLoading(true);
+    fetch("/api/life")
+      .then((r) => r.json())
+      .then((d: LifeData) => {
+        setLifeData(d);
+        setWaterCups(d.waterLog?.cups ?? 0);
+        setWeekDraft({ main_focus: d.weekPlan?.main_focus ?? "", goals: [...(d.weekPlan?.goals ?? ["","","",""]), "","","",""].slice(0,4), word_of_week: d.weekPlan?.word_of_week ?? "", intentions: d.weekPlan?.intentions ?? "" });
+        setIntentionDraft({ top3: [...(d.todayIntention?.top3 ?? ["","",""]), "","",""].slice(0,3), energy_level: d.todayIntention?.energy_level ?? 3, nervous_system: d.todayIntention?.nervous_system ?? "regulated", morning_note: d.todayIntention?.morning_note ?? "", evening_note: d.todayIntention?.evening_note ?? "", gratitude: [...(d.todayIntention?.gratitude ?? ["","",""]), "","",""].slice(0,3), social_battery: d.todayIntention?.social_battery ?? 3, mood: d.todayIntention?.mood ?? "", recharge: d.todayIntention?.recharge ?? "", alignment_note: d.todayIntention?.alignment_note ?? "", one_thing: d.todayIntention?.one_thing ?? "" });
+        if (d.todayIntention?.one_thing) setOneThing(d.todayIntention.one_thing);
+        if (d.sleepLog) setSleepDraft({ hours: String(d.sleepLog.hours ?? ""), quality: d.sleepLog.quality ?? 0, bedtime: d.sleepLog.bedtime ?? "", wake_time: d.sleepLog.wake_time ?? "", notes: d.sleepLog.notes ?? "" });
+        if (d.todayIntention?.brain_dump) setBrainDump(d.todayIntention.brain_dump);
+        if (d.monthlyReview) setMonthDraft({ word_of_month: d.monthlyReview.word_of_month ?? "", top_goals: [...(d.monthlyReview.top_goals ?? ["","",""]), "","",""].slice(0,3), goals_completed: [...(d.monthlyReview.goals_completed ?? [false,false,false]), false,false,false].slice(0,3), big_wins: [...(d.monthlyReview.big_wins ?? ["",""]), "",""].slice(0,2), growth_areas: [...(d.monthlyReview.growth_areas ?? ["",""]), "",""].slice(0,2), grateful_for: [...(d.monthlyReview.grateful_for ?? ["",""]), "",""].slice(0,2), reflection: d.monthlyReview.reflection ?? "" });
+        if (d.quarterlyReview) setQuarterDraft({ revenue_target: String(d.quarterlyReview.revenue_target ?? ""), revenue_actual: String(d.quarterlyReview.revenue_actual ?? ""), new_clients: String(d.quarterlyReview.new_clients ?? ""), leads_generated: String(d.quarterlyReview.leads_generated ?? ""), savings_target: String(d.quarterlyReview.savings_target ?? ""), savings_actual: String(d.quarterlyReview.savings_actual ?? ""), quarterly_goals: [...(d.quarterlyReview.quarterly_goals ?? ["","",""]), "","",""].slice(0,3), goals_status: [...(d.quarterlyReview.goals_status ?? ["","",""]), "","",""].slice(0,3), what_worked: d.quarterlyReview.what_worked ?? "", what_to_change: d.quarterlyReview.what_to_change ?? "", next_quarter_focus: d.quarterlyReview.next_quarter_focus ?? "", personal_reflection: d.quarterlyReview.personal_reflection ?? "", relationships_reflection: d.quarterlyReview.relationships_reflection ?? "", wellbeing_reflection: d.quarterlyReview.wellbeing_reflection ?? "", alignment_score: d.quarterlyReview.alignment_score ?? 0 });
+        if (d.annualReview) setAnnualDraft({ word_of_year: d.annualReview.word_of_year ?? "", vision_statement: d.annualReview.vision_statement ?? "", focus_buckets: d.annualReview.focus_buckets?.length ? d.annualReview.focus_buckets : [{ label: "Business", description: "", wins: "", grow: "" }, { label: "Health", description: "", wins: "", grow: "" }, { label: "Relationships", description: "", wins: "", grow: "" }, { label: "Personal Growth", description: "", wins: "", grow: "" }], reset_q1: d.annualReview.reset_q1 ?? "", reset_q2: d.annualReview.reset_q2 ?? "", reset_q3: d.annualReview.reset_q3 ?? "", reset_q4: d.annualReview.reset_q4 ?? "", big_wins: [...(d.annualReview.big_wins ?? ["","",""]), "","",""].slice(0,3), releasing: [...(d.annualReview.releasing ?? ["",""]), "",""].slice(0,2), calling_in: [...(d.annualReview.calling_in ?? ["",""]), "",""].slice(0,2) });
+      })
+      .catch(() => {})
+      .finally(() => setLifeLoading(false));
+  }, []);
+
+  const lifePost = React.useCallback(async (payload: object) => {
+    try {
+      const res = await fetch("/api/life", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const json = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || json.ok === false) {
+        const msg = json.error ?? `Server error ${res.status}`;
+        setLifeSaveError(msg);
+        setTimeout(() => setLifeSaveError(null), 5000);
+        return;
+      }
+    } catch {
+      setLifeSaveError("Network error — check your connection");
+      setTimeout(() => setLifeSaveError(null), 5000);
+      return;
+    }
+    loadLifeData();
+  }, [loadLifeData]);
+
+  const toggleHabitAnimated = React.useCallback(async (habitId: string, date: string | undefined, logged: boolean) => {
+    // Fire animation immediately — don't wait for server
+    if (!logged) {
+      setHabitJustLogged((s) => new Set([...s, habitId]));
+      setTimeout(() => setHabitJustLogged((s) => { const n = new Set(s); n.delete(habitId); return n; }), 700);
+    }
+    await lifePost({ type: "toggle_habit", habitId, date, logged });
+    // After reload, check if all habits are done today
+    if (!logged) {
+      const fresh = await fetch("/api/life").then((r) => r.json() as Promise<LifeData>).catch(() => null);
+      if (fresh) {
+        setLifeData(fresh);
+        setWaterCups(fresh.waterLog?.cups ?? 0);
+        const loggedIds = new Set(fresh.habitLogs.filter((l) => l.logged_date === fresh.today).map((l) => l.habit_id));
+        const allDone = fresh.habits.length > 0 && fresh.habits.every((h) => loggedIds.has(h.id));
+        if (allDone) triggerCelebration("QUEEN MODE! All habits done today 👑✨");
+      }
+    }
+  }, [lifePost, triggerCelebration]);
+
+  const completeTaskAnimated = React.useCallback(async (taskId: string) => {
+    setCompletingTaskId(taskId);
+    await fetch("/api/life", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "update_task", id: taskId, status: "done", completed_at: new Date().toISOString() }) });
+    setTimeout(() => { setCompletingTaskId(null); loadLifeData(); }, 350);
+  }, [loadLifeData]);
 
   // ── Platform toggles for manual posting ──
   const ALL_PLATFORMS = [
@@ -508,9 +749,31 @@ export default function WVWCommandCenter() {
       .finally(() => setContentLoading(false));
   }, []);
 
+  const fetchReddit = React.useCallback(() => {
+    setRedditLoading(true);
+    fetch("/api/reddit", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { signals: RedditSignal[]; fetchedAt: string }) => {
+        setRedditSignals(d.signals ?? []);
+        setRedditFetchedAt(d.fetchedAt ?? null);
+      })
+      .catch(() => {})
+      .finally(() => setRedditLoading(false));
+  }, []);
+
+  const fetchSocialStats = React.useCallback(() => {
+    fetch("/api/social-stats", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((rows: unknown) => { if (Array.isArray(rows)) setRealStats(rows as StatRow[]); })
+      .catch(() => {});
+  }, []);
+
   const refreshContent = () => {
     setContentLoading(true);
-    fetch("/api/data/content")
+    loadLifeData();
+    fetchReddit();
+    fetchSocialStats();
+    fetch("/api/data/content", { cache: "no-store" })
       .then((r) => r.json())
       .then((d: ContentData) => setContentData(d))
       .catch(() => {})
@@ -526,21 +789,24 @@ export default function WVWCommandCenter() {
       .then((d: PostingStatus) => {
         setPostingStatus(d);
         if (d.todayPlatforms?.length) setSelectedPlatforms(d.todayPlatforms);
+
+        // Show banner for any cron activity since last visit
+        const lastVisit = localStorage.getItem("wvw_last_visit");
+        const cutoff = lastVisit ? new Date(lastVisit) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const newEntries = (d.recentPosts ?? []).filter((p) => new Date(p.timestamp) > cutoff);
+        if (newEntries.length > 0) {
+          const posted = newEntries.filter((p) => p.status === "posted").length;
+          const failed = newEntries.filter((p) => p.status === "error" || p.status === "skipped").length;
+          const latestTheme = newEntries[0]?.theme ?? "";
+          setCronBanner({ posted, failed, label: latestTheme, since: cutoff.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) });
+        }
+        localStorage.setItem("wvw_last_visit", new Date().toISOString());
       })
       .catch((err) => console.error("[posting/status]", err))
       .finally(() => setPostingLoading(false));
   }, []);
 
-  useEffect(() => {
-    fetch("/api/reddit")
-      .then((r) => r.json())
-      .then((d: { signals: RedditSignal[]; fetchedAt: string }) => {
-        setRedditSignals(d.signals ?? []);
-        setRedditFetchedAt(d.fetchedAt ?? null);
-      })
-      .catch(() => {})
-      .finally(() => setRedditLoading(false));
-  }, []);
+  useEffect(() => { fetchReddit(); }, [fetchReddit]);
 
   // ── Fetch calendar data when month changes ──
   useEffect(() => {
@@ -587,13 +853,8 @@ export default function WVWCommandCenter() {
   };
   useEffect(fetchLeads, []);
 
-  // ── Fetch social stats ──
-  useEffect(() => {
-    fetch("/api/social-stats", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((rows: unknown) => { if (Array.isArray(rows)) setRealStats(rows as StatRow[]); })
-      .catch(() => {});
-  }, []);
+    // ── Fetch social stats ──
+  useEffect(() => { fetchSocialStats(); }, [fetchSocialStats]);
 
   // ── Fetch content queue ──
   const fetchQueue = () => {
@@ -612,6 +873,9 @@ export default function WVWCommandCenter() {
       .finally(() => setQueueLoading(false));
   };
   useEffect(fetchQueue, []);
+
+  // ── Load Life OS data on mount ──
+  useEffect(() => { loadLifeData(); }, [loadLifeData]);
 
   // ── Fetch strategy alerts ──
   useEffect(() => {
@@ -637,6 +901,64 @@ export default function WVWCommandCenter() {
       .catch(() => {});
   };
   useEffect(fetchConversions, []);
+
+  // ── Focus timer tick ──
+  useEffect(() => {
+    if (focusActive) {
+      focusInterval.current = setInterval(() => {
+        setFocusSeconds((s) => {
+          if (s > 0) return s - 1;
+          setFocusMinutes((m) => {
+            if (m > 0) return m - 1;
+            // Timer done
+            setFocusActive(false);
+            setFocusMode((mode) => {
+              const next = mode === "work" ? "break" : "work";
+              if (next === "break") {
+                triggerCelebration("Focus session done! Take a 5-min break 🧘🏾‍♀️");
+                setFocusMinutes(5);
+              } else {
+                setFocusMinutes(25);
+              }
+              return next;
+            });
+            return 0;
+          });
+          return 59;
+        });
+      }, 1000);
+    } else {
+      if (focusInterval.current) clearInterval(focusInterval.current);
+    }
+    return () => { if (focusInterval.current) clearInterval(focusInterval.current); };
+  }, [focusActive, triggerCelebration]);
+
+  // ── Medication search debounce ──
+  const searchMedication = React.useCallback((query: string) => {
+    if (medSearchTimer.current) clearTimeout(medSearchTimer.current);
+    if (!query || query.length < 2) { setMedSearchResult(null); return; }
+    medSearchTimer.current = setTimeout(async () => {
+      setMedSearchLoading(true);
+      try {
+        const res = await fetch(`/api/medication-info?name=${encodeURIComponent(query)}`);
+        const data = await res.json() as { found: boolean; normalizedName?: string; commonBrands?: string[]; commonDoses?: string[]; whenToTake?: string; frequency?: string; symptomsToTrack?: string[]; notes?: string };
+        if (data.found) {
+          setMedSearchResult(data as Parameters<typeof setMedSearchResult>[0]);
+          setNewMedForm((f) => ({
+            ...f,
+            name: data.normalizedName ?? f.name,
+            dose: data.commonDoses?.[0] ?? f.dose,
+            frequency: data.frequency ?? f.frequency,
+            when_to_take: data.whenToTake ?? f.when_to_take,
+            symptoms_to_track: data.symptomsToTrack ?? f.symptoms_to_track,
+          }));
+        } else {
+          setMedSearchResult(null);
+        }
+      } catch { setMedSearchResult(null); }
+      finally { setMedSearchLoading(false); }
+    }, 600);
+  }, []);
 
   const setThemeOfMonth = async (theme: string) => {
     setSettingTheme(true);
@@ -982,6 +1304,12 @@ export default function WVWCommandCenter() {
   return (
     <>
       <AnimatePresence>
+        {celebration.show && (
+          <CelebrationBurst message={celebration.message} onDone={() => setCelebration((s) => ({ ...s, show: false }))} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {modal && (
           <OutputPanel
             title={modal.title}
@@ -1029,118 +1357,2101 @@ export default function WVWCommandCenter() {
         )}
       </AnimatePresence>
 
-      <div className="min-h-screen p-4 md:p-8" style={{ background: C.ivory, color: C.warmBlack }}>
-        <div className="max-w-7xl mx-auto space-y-6">
+      {/* ── Sidebar + Main layout ── */}
+      <div className="flex h-screen overflow-hidden" style={{ background: N.bg, color: N.text }}>
 
-          {/* ── Header ── */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6"
-          >
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Badge
-                  className="rounded-full px-3 py-1 text-xs font-medium"
-                  style={{ background: C.forest, color: C.bone }}
-                >
-                  WVW Command Center
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className="rounded-full px-3 py-1 text-xs"
-                  style={{ borderColor: C.gold, color: C.charcoal }}
-                >
-                  Intelligence Hub
-                </Badge>
-              </div>
-              <h1 className="font-serif text-4xl md:text-6xl font-semibold tracking-tight leading-none">
-                Wholistic Vibes Wellness
-              </h1>
-              <p className="mt-2 text-sm md:text-base italic font-serif" style={{ color: C.gold }}>
-                Soft in appearance. Uncompromising in practice.
-              </p>
-              <p className="mt-2 max-w-2xl text-sm" style={{ color: C.charcoal }}>
-                Command your socials, newsletters, Reddit signals, monthly topics, Unicorn Wisdoms, and execution flow from one place.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                className="rounded-2xl text-sm"
-                style={{ background: C.forest, color: C.bone }}
-                onClick={refreshContent}
-              >
-                <RefreshCcw className="w-4 h-4 mr-2" /> Refresh
-              </Button>
-              <Button variant="outline" className="rounded-2xl text-sm" style={{ borderColor: C.gold, color: C.charcoal }} onClick={() => setActiveTab("autopost")}>
-                <Megaphone className="w-4 h-4 mr-2" /> Auto-Post Queue
-              </Button>
-              <Button variant="outline" className="rounded-2xl text-sm" style={{ borderColor: C.gold, color: C.charcoal }} onClick={() => setActiveTab("autopost")}>
-                <Bell className="w-4 h-4 mr-2" /> Alerts
-              </Button>
-            </div>
-          </motion.div>
-
-          {/* ── KPI row ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {[
-              { label: "Total Audience",      value: totalFollowers.toLocaleString(), icon: Users,      note: statsHaveData ? `Updated ${statsLastUpdated ? new Date(statsLastUpdated).toLocaleDateString() : "recently"}` : "Enter your stats in Settings → Update Stats" },
-              { label: "Avg Engagement",      value: `${avgEngagement}%`,             icon: Gauge,      note: statsHaveData ? "From your stats" : "Enter your stats in Settings → Update Stats" },
-              { label: "Top Platform",        value: topPlatform.platform,            icon: TrendingUp,  note: `${topPlatform.engagement}% engagement` },
-              { label: "Favorite Newsletter", value: topNewsletter.name,              icon: FileText,    note: `Score ${topNewsletter.favoriteScore} · estimated` },
-            ].map((item) => (
-              <Card key={item.label} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-medium" style={{ color: C.charcoal }}>{item.label}</p>
-                      <h3 className="font-serif text-2xl font-semibold mt-1">{item.value}</h3>
-                      <p className="text-xs mt-1.5" style={{ color: C.charcoal }}>{item.note}</p>
-                    </div>
-                    <div className="p-3 rounded-2xl" style={{ background: C.ivory }}>
-                      <item.icon className="w-4 h-4" style={{ color: C.forest }} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+        {/* ── Sidebar ── */}
+        <motion.aside
+          initial={{ x: -16, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="w-52 flex-shrink-0 flex flex-col border-r overflow-y-auto"
+          style={{ background: N.sidebar, borderColor: N.border }}
+        >
+          {/* Brand */}
+          <div className="px-4 pt-5 pb-3 border-b" style={{ borderColor: N.border }}>
+            <p className="font-serif text-base font-bold" style={{ color: N.text }}>WVW</p>
+            <p className="text-[11px] mt-0.5 italic" style={{ color: C.gold }}>Soft in appearance.</p>
           </div>
 
-          {/* ── Tabs ── */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList
-              className="flex flex-wrap gap-1 h-auto rounded-2xl p-1.5"
-              style={{ background: C.bone, border: `1px solid #DDD7CD` }}
-            >
-              {[
-                { value: "overview",      label: "Overview"     },
-                { value: "socials",       label: "Socials"      },
-                { value: "insights",      label: "Reddit/Trends" },
-                { value: "newsletters",   label: "Newsletters"  },
-                { value: "content",       label: "Content"      },
-                { value: "wisdom",        label: "Wisdoms"      },
-                { value: "autopost",      label: "Auto-Post"    },
-                { value: "publish",       label: "Publish"      },
-                { value: "calendar",      label: "Calendar"     },
-                { value: "performance",   label: "Performance"  },
-                { value: "intelligence",  label: "Intelligence" },
-                { value: "audience",      label: "Audience"     },
-                { value: "community",     label: "Community"    },
-                { value: "conversions",   label: "Conversions"  },
-                { value: "experiments",   label: "Experiments"  },
-                { value: "repurpose",     label: "Repurpose"    },
-                { value: "reports",       label: "Reports"      },
-                { value: "settings",      label: "Settings"     },
-              ].map((tab) => (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="rounded-xl text-xs data-[state=active]:shadow-none"
-                >
-                  {tab.label}
-                </TabsTrigger>
+          {/* Nav */}
+          <nav className="flex-1 px-2 py-3 space-y-3 overflow-y-auto">
+            <div>
+              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: N.muted }}>Life</p>
+              {[{ value: "life", emoji: "🌿", label: "Life OS" }].map((i) => (
+                <SidebarItem key={i.value} {...i} active={activeTab === i.value} onClick={() => setActiveTab(i.value)} />
               ))}
-            </TabsList>
+            </div>
+            <div>
+              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: N.muted }}>Content</p>
+              {[
+                { value: "overview",    emoji: "📊", label: "Overview" },
+                { value: "autopost",    emoji: "⚡", label: "Auto-Post" },
+                { value: "publish",     emoji: "🚀", label: "Publish" },
+                { value: "wisdom",      emoji: "✨", label: "Wisdoms" },
+                { value: "content",     emoji: "📝", label: "Content" },
+                { value: "calendar",    emoji: "📅", label: "Calendar" },
+                { value: "newsletters", emoji: "📧", label: "Newsletters" },
+              ].map((i) => (
+                <SidebarItem key={i.value} {...i} active={activeTab === i.value} onClick={() => setActiveTab(i.value)} />
+              ))}
+            </div>
+            <div>
+              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: N.muted }}>Intelligence</p>
+              {[
+                { value: "socials",       emoji: "🌐", label: "Socials" },
+                { value: "insights",      emoji: "🔍", label: "Reddit/Trends" },
+                { value: "performance",   emoji: "📈", label: "Performance" },
+                { value: "intelligence",  emoji: "🧠", label: "Intelligence" },
+                { value: "audience",      emoji: "👥", label: "Audience" },
+                { value: "community",     emoji: "💬", label: "Community" },
+                { value: "conversions",   emoji: "💰", label: "Conversions" },
+              ].map((i) => (
+                <SidebarItem key={i.value} {...i} active={activeTab === i.value} onClick={() => setActiveTab(i.value)} />
+              ))}
+            </div>
+            <div>
+              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: N.muted }}>Tools</p>
+              {[
+                { value: "experiments", emoji: "🧪", label: "Experiments" },
+                { value: "repurpose",   emoji: "♻️", label: "Repurpose" },
+                { value: "reports",     emoji: "📋", label: "Reports" },
+                { value: "website",     emoji: "🌐", label: "Website" },
+                { value: "settings",    emoji: "⚙️", label: "Settings" },
+              ].map((i) => (
+                <SidebarItem key={i.value} {...i} active={activeTab === i.value} onClick={() => setActiveTab(i.value)} />
+              ))}
+            </div>
+          </nav>
+
+          {/* Date footer */}
+          <div className="px-4 py-3 border-t text-[11px]" style={{ borderColor: N.border, color: N.muted }}>
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+          </div>
+        </motion.aside>
+
+        {/* ── Main content ── */}
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ background: N.bg }}>
+
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-6 py-3 border-b flex-shrink-0" style={{ borderColor: N.border, background: N.bg }}>
+            <div className="flex items-center gap-3 min-w-0">
+              <h2 className="font-serif text-base font-semibold truncate" style={{ color: N.text }}>
+                {{ life: "🌿 Life OS", overview: "📊 Overview", autopost: "⚡ Auto-Post", publish: "🚀 Publish", wisdom: "✨ Wisdoms", content: "📝 Content", calendar: "📅 Calendar", newsletters: "📧 Newsletters", socials: "🌐 Socials", insights: "🔍 Reddit / Trends", performance: "📈 Performance", intelligence: "🧠 Intelligence", audience: "👥 Audience", community: "💬 Community", conversions: "💰 Conversions", experiments: "🧪 Experiments", repurpose: "♻️ Repurpose", reports: "📋 Reports", website: "🌐 Website", settings: "⚙️ Settings" }[activeTab] ?? activeTab}
+              </h2>
+              {cronBanner && (
+                <div className="hidden md:flex items-center gap-2 text-xs px-3 py-1 rounded-full" style={{ background: cronBanner.posted > 0 ? C.forest + "15" : C.rose + "15", color: cronBanner.posted > 0 ? C.forest : C.rose }}>
+                  {cronBanner.posted > 0 ? `✓ ${cronBanner.posted} posted` : ""}{cronBanner.failed > 0 ? ` · ✗ ${cronBanner.failed} failed` : ""}
+                  <button onClick={() => setCronBanner(null)} className="ml-1 opacity-60 hover:opacity-100">×</button>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Compact KPIs */}
+              <div className="hidden lg:flex items-center gap-4 text-xs mr-2" style={{ color: N.muted }}>
+                <span><span className="font-semibold" style={{ color: N.text }}>{totalFollowers.toLocaleString()}</span> audience</span>
+                <span><span className="font-semibold" style={{ color: N.text }}>{avgEngagement}%</span> engagement</span>
+              </div>
+              <Button size="sm" className="rounded-xl text-xs h-8" style={{ background: C.forest, color: "#FFF" }} onClick={refreshContent}>
+                <RefreshCcw className="w-3.5 h-3.5 mr-1.5" /> Refresh
+              </Button>
+              <Button size="sm" variant="outline" className="rounded-xl text-xs h-8" style={{ borderColor: N.border, color: N.muted }} onClick={() => setActiveTab("autopost")}>
+                <Zap className="w-3.5 h-3.5 mr-1.5" /> Auto-Post
+              </Button>
+            </div>
+          </div>
+
+          {/* Scrollable content with page transitions */}
+          <div className="flex-1 overflow-y-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, filter: "blur(8px)", y: 8 }}
+                animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+                exit={{ opacity: 0, filter: "blur(4px)", y: -4 }}
+                transition={SPRING}
+                className="p-6"
+              >
+
+          {/* ── Tabs (hidden nav, visible content) ── */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList className="sr-only" />
+
+            {/* ── Life OS ── */}
+            <TabsContent value="life" className="space-y-4">
+              {lifeLoading && !lifeData ? (
+                <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: C.forest }} /></div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Sub-nav */}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {([
+                      { id: "today",    label: "🌞 Today" },
+                      { id: "habits",   label: "🌿 Habits" },
+                      { id: "tasks",    label: "📋 Tasks" },
+                      { id: "weekly",   label: "📅 Weekly" },
+                      { id: "monthly",  label: "🗓️ Monthly" },
+                      { id: "quarterly",label: "📊 Quarterly" },
+                      { id: "annual",   label: "🌟 Annual" },
+                      { id: "library",  label: "📚 Library" },
+                      { id: "bucket",   label: "🌍 Bucket" },
+                      { id: "wellness", label: "💊 Wellness" },
+                      { id: "spiritual",label: "🌙 Spiritual" },
+                    ] as const).map(({ id, label }, i) => (
+                      <motion.button
+                        key={id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={STAGGER(i)}
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => setLifeTab(id)}
+                        className="text-xs px-3 py-1.5 rounded-full border relative overflow-hidden"
+                        style={{ background: lifeTab === id ? C.forest : C.ivory, color: lifeTab === id ? C.bone : C.charcoal, borderColor: lifeTab === id ? C.forest : "#DDD7CD", fontWeight: lifeTab === id ? 600 : 400 }}
+                      >
+                        {label}
+                        {lifeTab === id && (
+                          <motion.div layoutId="lifeTabIndicator" className="absolute inset-0 rounded-full -z-10" style={{ background: C.forest }} transition={SPRING} />
+                        )}
+                      </motion.button>
+                    ))}
+                    <motion.button {...btnTap} onClick={loadLifeData} className="text-xs px-3 py-1.5 rounded-full border ml-auto" style={{ borderColor: "#DDD7CD", color: C.charcoal }}>↻</motion.button>
+                  </div>
+
+                  {/* Save error banner */}
+                  <AnimatePresence>
+                    {lifeSaveError && (
+                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={SPRING}
+                        className="px-4 py-3 rounded-2xl text-sm font-medium flex items-center justify-between"
+                        style={{ background: "#C4A09A22", borderColor: "#C4A09A44", border: "1px solid", color: "#8B3A2A" }}>
+                        <span>⚠ Save failed: {lifeSaveError}</span>
+                        <button onClick={() => setLifeSaveError(null)} className="ml-4 opacity-60 hover:opacity-100">✕</button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* TODAY view */}
+                  {lifeTab === "today" && (
+                    <motion.div key="today" {...FADE_BLUR} className="space-y-4">
+
+                      {/* Vision Anchor — shows word of year + vision if set */}
+                      {(lifeData?.annualReview?.word_of_year || lifeData?.annualReview?.vision_statement) && (
+                        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={SPRING}
+                          className="px-5 py-3 rounded-2xl border flex items-center gap-3"
+                          style={{ background: "linear-gradient(135deg, #1C3A2A08, #B8A06A0D)", borderColor: "#B8A06A33" }}>
+                          {lifeData.annualReview.word_of_year && (
+                            <span className="text-xs font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ background: "#B8A06A22", color: "#B8A06A" }}>{lifeData.annualReview.word_of_year}</span>
+                          )}
+                          {lifeData.annualReview.vision_statement && (
+                            <p className="text-xs flex-1 italic" style={{ color: C.charcoal }}>{lifeData.annualReview.vision_statement.slice(0, 120)}{lifeData.annualReview.vision_statement.length > 120 ? "…" : ""}</p>
+                          )}
+                          <button onClick={() => setLifeTab("annual")} className="text-xs shrink-0" style={{ color: "#B8A06A" }}>Vision →</button>
+                        </motion.div>
+                      )}
+
+                      {/* ONE THING — hero card */}
+                      <motion.div {...cardHover}>
+                        <Card className="rounded-3xl shadow-none overflow-hidden" style={{ background: "linear-gradient(135deg, #1C3A2A, #2D5A40)", borderColor: "#B8A06A44" }}>
+                          <CardContent className="pt-5 pb-5">
+                            <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "#B8A06A" }}>The ONE Thing Today</p>
+                            <p className="text-xs mb-3" style={{ color: "#F5F0E899" }}>If you do nothing else, this matters most.</p>
+                            <div className="relative">
+                              <textarea
+                                value={oneThing}
+                                onChange={(e) => {
+                                  setOneThing(e.target.value);
+                                  setOneThingSaved(false);
+                                  if (oneThingTimer.current) clearTimeout(oneThingTimer.current);
+                                  oneThingTimer.current = setTimeout(async () => {
+                                    await fetch("/api/life", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "save_one_thing", one_thing: e.target.value }) });
+                                    setOneThingSaved(true);
+                                    setTimeout(() => setOneThingSaved(false), 2000);
+                                  }, 800);
+                                }}
+                                placeholder="What is the single most important thing you could do today?"
+                                rows={2}
+                                className="w-full text-base font-serif px-4 py-3 rounded-2xl resize-none"
+                                style={{ background: "#FFFFFF18", border: "1px solid #B8A06A44", color: "#F5F0E8", caretColor: "#B8A06A" }}
+                              />
+                              <AnimatePresence>
+                                {oneThingSaved && (
+                                  <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute bottom-3 right-3 text-xs" style={{ color: "#B8A06A" }}>Saved ✓</motion.span>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+
+                      {/* Capacity Synthesis */}
+                      {(() => {
+                        const energy = lifeData?.todayIntention?.energy_level;
+                        const ns = lifeData?.todayIntention?.nervous_system;
+                        const sleep = lifeData?.sleepLog?.hours;
+                        const social = lifeData?.todayIntention?.social_battery;
+                        if (!energy && !ns && !sleep) return null;
+                        const energyScore = energy ?? 3;
+                        const sleepScore = sleep ? (sleep >= 8 ? 5 : sleep >= 7 ? 4 : sleep >= 6 ? 3 : sleep >= 5 ? 2 : 1) : 3;
+                        const nsScore = ns === "regulated" ? 5 : ns === "grounded" ? 4 : ns === "mixed" ? 3 : ns === "activated" ? 2 : ns === "shutdown" ? 1 : 3;
+                        const capacity = Math.round(((energyScore + sleepScore + nsScore) / 15) * 100);
+                        const color = capacity >= 70 ? C.forest : capacity >= 45 ? C.gold : C.rose;
+                        const label = capacity >= 75 ? "Full capacity. Use it wisely." : capacity >= 55 ? "Moderate capacity. Protect your focus." : capacity >= 35 ? "Low capacity. Honor your limits today." : "Depleted. Rest is the work today.";
+                        const recentData = (lifeData?.recentIntentions ?? []).filter(r => r.energy_level != null);
+                        return (
+                          <div className="p-4 rounded-2xl border flex items-center gap-4" style={{ background: color + "0C", borderColor: color + "33" }}>
+                            <div className="text-center shrink-0">
+                              <p className="text-3xl font-bold font-mono" style={{ color }}>{capacity}%</p>
+                              <p className="text-xs" style={{ color }}>Capacity</p>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium" style={{ color: C.warmBlack }}>{label}</p>
+                              <div className="flex gap-3 mt-1.5 flex-wrap">
+                                {energy != null && <span className="text-xs" style={{ color: C.charcoal }}>Energy {energy}/5</span>}
+                                {sleep != null && <span className="text-xs" style={{ color: C.charcoal }}>Sleep {sleep}h</span>}
+                                {ns && <span className="text-xs capitalize" style={{ color: C.charcoal }}>NS: {ns}</span>}
+                                {social != null && <span className="text-xs" style={{ color: C.charcoal }}>Social battery {social}/5</span>}
+                              </div>
+                            </div>
+                            {recentData.length >= 3 && (
+                              <div className="flex items-end gap-0.5 shrink-0 h-8">
+                                {recentData.slice(-7).map((r, i) => (
+                                  <div key={i} className="w-2 rounded-sm transition-all"
+                                    title={`${r.date}: energy ${r.energy_level}`}
+                                    style={{ height: `${((r.energy_level ?? 0) / 5) * 100}%`, minHeight: 3, background: (r.energy_level ?? 0) >= 4 ? C.forest : (r.energy_level ?? 0) >= 3 ? C.gold : C.rose, opacity: i === recentData.slice(-7).length - 1 ? 1 : 0.5 + (i / recentData.slice(-7).length) * 0.4 }} />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Top row: check-in + top tasks */}
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+                        {/* Daily Intention Card */}
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="font-serif text-xl">🌅 Daily Intention</CardTitle>
+                              <button onClick={() => setIntentionEdit(!intentionEdit)} className="text-xs px-3 py-1 rounded-full" style={{ background: C.forest + "18", color: C.forest }}>{intentionEdit ? "Cancel" : "Edit"}</button>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            {intentionEdit ? (
+                              <div className="space-y-3">
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Energy level (1–5)</p>
+                                  <div className="flex gap-2">
+                                    {[1,2,3,4,5].map((n) => (
+                                      <button key={n} onClick={() => setIntentionDraft((s) => ({ ...s, energy_level: n }))} className="w-9 h-9 rounded-full border text-sm font-semibold transition-all" style={{ background: intentionDraft.energy_level === n ? C.forest : C.ivory, color: intentionDraft.energy_level === n ? C.bone : C.charcoal, borderColor: intentionDraft.energy_level === n ? C.forest : "#DDD7CD" }}>{n}</button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Nervous system state</p>
+                                  <div className="flex gap-2 flex-wrap">
+                                    {[
+                                      { value: "regulated", label: "Regulated", desc: "Safe & present" },
+                                      { value: "grounded", label: "Grounded", desc: "Calm & clear" },
+                                      { value: "activated", label: "Activated", desc: "Anxious / on edge" },
+                                      { value: "shutdown", label: "Shutdown", desc: "Flat / depleted" },
+                                      { value: "mixed", label: "Mixed", desc: "Hard to read" },
+                                    ].map(({ value, label, desc }) => (
+                                      <button key={value} onClick={() => setIntentionDraft((d) => ({ ...d, nervous_system: value }))}
+                                        className="text-xs px-3 py-1.5 rounded-full border transition-all text-left"
+                                        title={desc}
+                                        style={{ background: intentionDraft.nervous_system === value ? C.gold : C.ivory, color: intentionDraft.nervous_system === value ? C.warmBlack : C.charcoal, borderColor: intentionDraft.nervous_system === value ? C.gold : "#DDD7CD" }}>{label}</button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Social battery (1 = drained · 5 = full)</p>
+                                  <div className="flex gap-2">
+                                    {[1,2,3,4,5].map((n) => (
+                                      <button key={n} onClick={() => setIntentionDraft((s) => ({ ...s, social_battery: n }))} className="w-9 h-9 rounded-full border text-sm font-semibold transition-all" style={{ background: intentionDraft.social_battery === n ? "#7C6B9E" : C.ivory, color: intentionDraft.social_battery === n ? C.bone : C.charcoal, borderColor: intentionDraft.social_battery === n ? "#7C6B9E" : "#DDD7CD" }}>{n}</button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Mood — what are you actually feeling?</p>
+                                  <div className="flex gap-1.5 flex-wrap mb-1">
+                                    {["Focused","Anxious","Calm","Overwhelmed","Creative","Disconnected","Energized","Heavy","Grateful","Irritable","Hopeful","Numb"].map((m) => (
+                                      <button key={m} onClick={() => setIntentionDraft((s) => ({ ...s, mood: s.mood === m ? "" : m }))} className="text-xs px-2.5 py-1 rounded-full border transition-all" style={{ background: intentionDraft.mood === m ? C.rose + "33" : C.ivory, color: intentionDraft.mood === m ? C.warmBlack : C.charcoal, borderColor: intentionDraft.mood === m ? C.rose : "#DDD7CD" }}>{m}</button>
+                                    ))}
+                                  </div>
+                                  <input value={intentionDraft.mood} onChange={(e) => setIntentionDraft((s) => ({ ...s, mood: e.target.value }))} placeholder="Or type your own..." className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Top 3 intentions for today</p>
+                                  {intentionDraft.top3.map((t, i) => (
+                                    <input key={i} value={t} onChange={(e) => setIntentionDraft((s) => { const top3 = [...s.top3]; top3[i] = e.target.value; return { ...s, top3 }; })} placeholder={`Intention ${i + 1}`} className="w-full text-sm px-3 py-2 rounded-xl border mb-1" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                                  ))}
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Morning note</p>
+                                  <textarea value={intentionDraft.morning_note} onChange={(e) => setIntentionDraft((s) => ({ ...s, morning_note: e.target.value }))} rows={2} placeholder="How are you entering this day..." className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>How did you recharge today?</p>
+                                  <input value={intentionDraft.recharge} onChange={(e) => setIntentionDraft((s) => ({ ...s, recharge: e.target.value }))} placeholder="Alone time, walk, reading, quiet, creative work..." className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Evening close — did today align with your vision?</p>
+                                  <textarea value={intentionDraft.alignment_note} onChange={(e) => setIntentionDraft((s) => ({ ...s, alignment_note: e.target.value }))} rows={2} placeholder="What moved? What didn't? What would you do differently?" className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Evening note</p>
+                                  <textarea value={intentionDraft.evening_note} onChange={(e) => setIntentionDraft((s) => ({ ...s, evening_note: e.target.value }))} rows={2} placeholder="How did today land..." className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Gratitude (3 things)</p>
+                                  {intentionDraft.gratitude.map((g, i) => (
+                                    <input key={i} value={g} onChange={(e) => setIntentionDraft((s) => { const gratitude = [...s.gratitude]; gratitude[i] = e.target.value; return { ...s, gratitude }; })} placeholder={`Grateful for...`} className="w-full text-sm px-3 py-2 rounded-xl border mb-1" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                                  ))}
+                                </div>
+                                <button onClick={async () => { await lifePost({ type: "save_intention", ...intentionDraft, top3: intentionDraft.top3.filter(Boolean), gratitude: intentionDraft.gratitude.filter(Boolean) }); setIntentionEdit(false); }} className="text-xs px-4 py-2 rounded-full" style={{ background: C.forest, color: C.bone }}>Save Intention</button>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {/* Energy + NS */}
+                                <div className="flex gap-3">
+                                  {lifeData?.todayIntention?.energy_level != null && (
+                                    <div className="flex-1 p-3 rounded-2xl text-center" style={{ background: C.ivory }}>
+                                      <p className="text-xs" style={{ color: C.charcoal }}>Energy</p>
+                                      <p className="text-2xl font-bold" style={{ color: C.forest }}>{lifeData.todayIntention.energy_level}/5</p>
+                                    </div>
+                                  )}
+                                  {lifeData?.todayIntention?.nervous_system && (
+                                    <div className="flex-1 p-3 rounded-2xl text-center" style={{ background: C.ivory }}>
+                                      <p className="text-xs" style={{ color: C.charcoal }}>Nervous System</p>
+                                      <p className="text-sm font-semibold capitalize" style={{ color: C.gold }}>{lifeData.todayIntention.nervous_system}</p>
+                                    </div>
+                                  )}
+                                </div>
+                                {/* Top 3 */}
+                                {(lifeData?.todayIntention?.top3 ?? []).filter(Boolean).length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Today&apos;s intentions</p>
+                                    {(lifeData?.todayIntention?.top3 ?? []).filter(Boolean).map((t, i) => (
+                                      <div key={i} className="flex items-center gap-2 text-sm py-1" style={{ color: C.warmBlack }}>
+                                        <span style={{ color: C.forest }}>{i === 0 ? "①" : i === 1 ? "②" : "③"}</span> {t}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* Mood + Social Battery row */}
+                                {(lifeData?.todayIntention?.mood || lifeData?.todayIntention?.social_battery != null) && (
+                                  <div className="flex gap-2 flex-wrap">
+                                    {lifeData?.todayIntention?.mood && (
+                                      <span className="text-xs px-3 py-1 rounded-full border" style={{ background: C.rose + "15", borderColor: C.rose + "44", color: C.warmBlack }}>
+                                        Feeling: {lifeData.todayIntention.mood}
+                                      </span>
+                                    )}
+                                    {lifeData?.todayIntention?.social_battery != null && (
+                                      <span className="text-xs px-3 py-1 rounded-full border" style={{ background: "#7C6B9E15", borderColor: "#7C6B9E44", color: C.warmBlack }}>
+                                        Social battery: {lifeData.todayIntention.social_battery}/5
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                {/* Morning note */}
+                                {lifeData?.todayIntention?.morning_note && (
+                                  <div className="p-3 rounded-2xl" style={{ background: C.ivory }}>
+                                    <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Morning</p>
+                                    <p className="text-sm" style={{ color: C.warmBlack }}>{lifeData.todayIntention.morning_note}</p>
+                                  </div>
+                                )}
+                                {/* Recharge */}
+                                {lifeData?.todayIntention?.recharge && (
+                                  <div className="p-3 rounded-2xl" style={{ background: C.ivory }}>
+                                    <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Recharge</p>
+                                    <p className="text-sm" style={{ color: C.warmBlack }}>🌿 {lifeData.todayIntention.recharge}</p>
+                                  </div>
+                                )}
+                                {/* Alignment */}
+                                {lifeData?.todayIntention?.alignment_note && (
+                                  <div className="p-3 rounded-2xl border" style={{ background: "#B8A06A08", borderColor: "#B8A06A33" }}>
+                                    <p className="text-xs font-medium mb-1" style={{ color: "#B8A06A" }}>Alignment close</p>
+                                    <p className="text-sm" style={{ color: C.warmBlack }}>{lifeData.todayIntention.alignment_note}</p>
+                                  </div>
+                                )}
+                                {/* Evening note */}
+                                {lifeData?.todayIntention?.evening_note && (
+                                  <div className="p-3 rounded-2xl" style={{ background: C.ivory }}>
+                                    <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Evening</p>
+                                    <p className="text-sm" style={{ color: C.warmBlack }}>{lifeData.todayIntention.evening_note}</p>
+                                  </div>
+                                )}
+                                {/* Gratitude */}
+                                {(lifeData?.todayIntention?.gratitude ?? []).filter(Boolean).length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Grateful for</p>
+                                    {(lifeData?.todayIntention?.gratitude ?? []).filter(Boolean).map((g, i) => (
+                                      <p key={i} className="text-sm py-0.5" style={{ color: C.charcoal }}>💜 {g}</p>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* Wins from SMS */}
+                                {(lifeData?.todayIntention?.wins ?? []).length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Today&apos;s wins</p>
+                                    {(lifeData?.todayIntention?.wins ?? []).map((w, i) => (
+                                      <p key={i} className="text-sm py-0.5" style={{ color: C.forest }}>🏆 {w}</p>
+                                    ))}
+                                  </div>
+                                )}
+                                {!lifeData?.todayIntention && (
+                                  <p className="text-sm italic text-center py-3" style={{ color: C.charcoal }}>Set today&apos;s intention — click Edit. 🌅</p>
+                                )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* Today's top tasks */}
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="font-serif text-xl">🔥 Today&apos;s Top 3</CardTitle>
+                              <span className="text-xs px-2 py-1 rounded-full" style={{ background: C.forest + "18", color: C.forest }}>
+                                {(lifeData?.tasks ?? []).filter((t) => t.status === "open" || t.status === "in_progress").length} open
+                              </span>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            {(lifeData?.tasks ?? []).filter((t) => t.status === "open" || t.status === "in_progress").sort((a, b) => (a.priority === "high" ? -1 : b.priority === "high" ? 1 : 0)).slice(0, 3).map((task, i) => (
+                              <div key={task.id} className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: C.ivory }}>
+                                <span className="text-lg">{i === 0 ? "🔥" : i === 1 ? "⚡" : "📝"}</span>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium" style={{ color: C.warmBlack }}>{task.title}</p>
+                                  {task.due_date && <p className="text-xs" style={{ color: task.due_date < (lifeData?.today ?? "") ? C.rose : C.charcoal }}>{task.due_date < (lifeData?.today ?? "") ? "⚠️ Overdue" : `Due ${task.due_date}`}</p>}
+                                </div>
+                                <button onClick={() => lifePost({ type: "update_task", id: task.id, status: "done", completed_at: new Date().toISOString() })} className="text-xs px-2 py-1 rounded-lg" style={{ background: C.forest + "18", color: C.forest }}>Done ✓</button>
+                              </div>
+                            ))}
+                            {(lifeData?.tasks ?? []).filter((t) => t.status === "open" || t.status === "in_progress").length === 0 && (
+                              <p className="text-sm italic py-4 text-center" style={{ color: C.charcoal }}>All clear! Add tasks in the Tasks tab. 🙌🏾</p>
+                            )}
+                            {/* Overdue warning */}
+                            {(lifeData?.tasks ?? []).filter((t) => (t.status === "open" || t.status === "in_progress") && t.due_date && t.due_date < (lifeData?.today ?? "")).length > 0 && (
+                              <div className="p-3 rounded-2xl border" style={{ borderColor: C.rose + "66", background: C.rose + "11" }}>
+                                <p className="text-xs font-semibold" style={{ color: C.rose }}>⚠️ {(lifeData?.tasks ?? []).filter((t) => (t.status === "open" || t.status === "in_progress") && t.due_date && t.due_date < (lifeData?.today ?? "")).length} overdue — check Tasks tab</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Habits quick-check for today — grouped by category */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="font-serif text-xl">🌿 Today&apos;s Habits</CardTitle>
+                            <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: C.forest + "18", color: C.forest }}>
+                              {(lifeData?.habitLogs ?? []).filter((l) => l.logged_date === lifeData?.today).length}/{(lifeData?.habits ?? []).length} done
+                            </span>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          {(() => {
+                            const CAT_ORDER = ["morning","mindfulness","spiritual","health","pet","wellness","chores","work","learning"];
+                            const CAT_LABELS: Record<string,string> = {
+                              morning:"🌅 Morning", mindfulness:"🧘🏾 Mindfulness", spiritual:"🙏🏾 Spiritual",
+                              health:"💪🏾 Health", pet:"🐕 Brownie", wellness:"🌿 Wellness",
+                              chores:"🧹 Chores", work:"💼 Work", learning:"📚 Learning",
+                            };
+                            const grouped = CAT_ORDER.map(cat => ({
+                              cat, label: CAT_LABELS[cat] ?? cat,
+                              habits: (lifeData?.habits ?? []).filter(h => h.category === cat)
+                            })).filter(g => g.habits.length > 0);
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                                {grouped.map(({ cat, label, habits: catHabits }) => (
+                                  <div key={cat}>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest mb-2 px-1" style={{ color: C.charcoal }}>{label}</p>
+                                    <div className="space-y-1.5">
+                                      {catHabits.map(habit => {
+                                        const logged = (lifeData?.habitLogs ?? []).some(l => l.habit_id === habit.id && l.logged_date === lifeData?.today);
+                                        const justDone = habitJustLogged.has(habit.id);
+                                        return (
+                                          <motion.button
+                                            key={habit.id}
+                                            onClick={() => toggleHabitAnimated(habit.id, lifeData?.today, logged)}
+                                            animate={justDone ? { scale: [1, 1.06, 0.96, 1.02, 1] } : { scale: 1 }}
+                                            transition={{ duration: 0.4, ease: "easeOut" }}
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl border transition-colors duration-200 text-left"
+                                            style={{
+                                              background: logged ? C.forest : C.ivory,
+                                              borderColor: logged ? C.forest : N.border,
+                                            }}
+                                          >
+                                            <span className="text-base leading-none w-5 text-center shrink-0">{habit.emoji}</span>
+                                            <span className="flex-1 text-sm font-medium" style={{ color: logged ? "#fff" : C.warmBlack }}>
+                                              {habit.name}
+                                            </span>
+                                            <motion.div
+                                              animate={logged ? { scale: 1, opacity: 1 } : { scale: 0.3, opacity: 0 }}
+                                              transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                                              className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                                              style={{ background: "rgba(255,255,255,0.22)" }}
+                                            >
+                                              <span className="text-[11px] font-bold text-white">✓</span>
+                                            </motion.div>
+                                          </motion.button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </CardContent>
+                      </Card>
+
+                      {/* Wellness Quick-Check */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Water */}
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardContent className="pt-4 pb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-serif text-base font-semibold" style={{ color: C.warmBlack }}>💧 Water Today</p>
+                              <button onClick={() => setLifeTab("wellness")} className="text-xs" style={{ color: C.charcoal }}>See all →</button>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex gap-1">
+                                {Array.from({ length: waterGoal }).map((_, i) => (
+                                  <motion.button
+                                    key={i}
+                                    onClick={async () => {
+                                      const next = i < waterCups ? i : i + 1;
+                                      setWaterCups(next);
+                                      await lifePost({ type: "set_water", cups: next, goal_cups: waterGoal });
+                                    }}
+                                    animate={i < waterCups ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+                                    className="text-base leading-none"
+                                    title={`${i + 1} cup${i + 1 !== 1 ? "s" : ""}`}
+                                  >
+                                    {i < waterCups ? "💧" : "🩶"}
+                                  </motion.button>
+                                ))}
+                              </div>
+                              <span className="text-sm font-medium" style={{ color: waterCups >= waterGoal ? C.forest : C.charcoal }}>
+                                {waterCups}/{waterGoal}
+                                {waterCups >= waterGoal && " 🎉"}
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Medications */}
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardContent className="pt-4 pb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-serif text-base font-semibold" style={{ color: C.warmBlack }}>💊 Medications</p>
+                              <button onClick={() => setLifeTab("wellness")} className="text-xs" style={{ color: C.charcoal }}>Log →</button>
+                            </div>
+                            {(lifeData?.medications ?? []).length === 0 ? (
+                              <p className="text-xs italic" style={{ color: C.charcoal }}>No meds tracked — add in Wellness tab</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {(lifeData?.medications ?? []).slice(0, 4).map((med) => {
+                                  const log = (lifeData?.medLogs ?? []).find((l) => l.medication_name === med.name);
+                                  return (
+                                    <div key={med.id} className="flex items-center justify-between">
+                                      <span className="text-xs" style={{ color: C.warmBlack }}>{med.name}{med.dose ? ` (${med.dose})` : ""}</span>
+                                      <span className="text-xs font-medium" style={{ color: log?.taken ? C.forest : C.rose }}>
+                                        {log?.taken ? "✓ Taken" : "○ Pending"}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* Sleep */}
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardContent className="pt-4 pb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-serif text-base font-semibold" style={{ color: C.warmBlack }}>🌙 Last Night</p>
+                              <button onClick={() => setLifeTab("wellness")} className="text-xs" style={{ color: C.charcoal }}>Log →</button>
+                            </div>
+                            {lifeData?.sleepLog ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-2xl font-bold font-mono" style={{ color: lifeData.sleepLog.hours && lifeData.sleepLog.hours >= 7 ? C.forest : C.rose }}>{lifeData.sleepLog.hours ?? "—"}</span>
+                                  <span className="text-xs" style={{ color: C.charcoal }}>hours</span>
+                                  {lifeData.sleepLog.quality ? (
+                                    <span className="ml-auto text-sm">{["","😴","😕","😐","🙂","✨"][lifeData.sleepLog.quality]}</span>
+                                  ) : null}
+                                </div>
+                                {lifeData.sleepLog.bedtime && lifeData.sleepLog.wake_time && (
+                                  <p className="text-xs" style={{ color: C.charcoal }}>{lifeData.sleepLog.bedtime} → {lifeData.sleepLog.wake_time}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-xs italic" style={{ color: C.charcoal }}>Not logged yet — tap Log →</p>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* Morning Briefing SMS */}
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardContent className="pt-4 pb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-serif text-base font-semibold" style={{ color: C.warmBlack }}>📱 Morning Text</p>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: C.forest + "18", color: C.forest }}>9 AM ET</span>
+                            </div>
+                            <p className="text-xs mb-3" style={{ color: C.charcoal }}>
+                              Daily briefing: tasks, weekly focus, overdue alerts + motivational close.
+                            </p>
+                            {smsLastSent && (
+                              <p className="text-[10px] mb-2" style={{ color: C.charcoal }}>
+                                Last sent: {new Date(smsLastSent).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                              </p>
+                            )}
+                            <motion.button
+                              {...btnTap}
+                              disabled={smsSending}
+                              onClick={async () => {
+                                setSmsSending(true);
+                                setSmsPreview(null);
+                                try {
+                                  const res = await fetch("/api/life", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ type: "send_morning_text" }),
+                                  });
+                                  const json = await res.json() as { sent?: boolean; preview?: string; error?: string; ok?: boolean; sid?: string };
+                                  if (json.sent) {
+                                    setSmsLastSent(new Date().toISOString());
+                                    setSmsPreview((json.sid ? `SID: ${json.sid}\n` : "") + (json.preview ?? ""));
+                                  } else {
+                                    setSmsPreview("Error: " + (json.error ?? "Unknown"));
+                                  }
+                                } catch {
+                                  setSmsPreview("Network error — check console");
+                                } finally {
+                                  setSmsSending(false);
+                                }
+                              }}
+                              className="w-full text-xs py-2 rounded-xl font-semibold transition-opacity disabled:opacity-50"
+                              style={{ background: C.forest, color: "#fff" }}
+                            >
+                              {smsSending ? "Sending…" : "Send Now 📨"}
+                            </motion.button>
+                            <AnimatePresence>
+                              {smsPreview && (
+                                <motion.p
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  className="text-[10px] mt-2 leading-relaxed"
+                                  style={{ color: smsPreview.startsWith("Error") ? C.rose : C.forest }}
+                                >
+                                  {smsPreview.startsWith("Error") ? smsPreview : "✓ Sent! Preview: " + smsPreview.slice(0, 80) + "…"}
+                                </motion.p>
+                              )}
+                            </AnimatePresence>
+                          </CardContent>
+                        </Card>
+
+                        {/* Evening Check-In SMS */}
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardContent className="pt-4 pb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-serif text-base font-semibold" style={{ color: C.warmBlack }}>🌙 Evening Check-In</p>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "#7C3AED18", color: "#7C3AED" }}>9 PM ET</span>
+                            </div>
+                            <p className="text-[11px] mb-3" style={{ color: N.muted }}>Thorns & roses, closed tasks, tomorrow&apos;s focus.</p>
+                            <motion.button
+                              {...btnTap}
+                              disabled={eveningSending}
+                              onClick={async () => {
+                                setEveningSending(true);
+                                setEveningPreview(null);
+                                try {
+                                  const res = await fetch("/api/life", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ type: "send_evening_text" }),
+                                  });
+                                  const json = await res.json() as { sent?: boolean; preview?: string; error?: string; sid?: string };
+                                  if (json.sent) {
+                                    setEveningPreview((json.sid ? `SID: ${json.sid}\n` : "") + (json.preview ?? ""));
+                                  } else {
+                                    setEveningPreview("Error: " + (json.error ?? "Unknown"));
+                                  }
+                                } catch {
+                                  setEveningPreview("Network error");
+                                } finally {
+                                  setEveningSending(false);
+                                }
+                              }}
+                              className="w-full text-xs py-2 rounded-xl font-semibold transition-opacity disabled:opacity-50"
+                              style={{ background: "#7C3AED", color: "#fff" }}
+                            >
+                              {eveningSending ? "Sending…" : "Send Now 🌙"}
+                            </motion.button>
+                            <AnimatePresence>
+                              {eveningPreview && (
+                                <motion.p
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  className="text-[10px] mt-2 leading-relaxed"
+                                  style={{ color: eveningPreview.startsWith("Error") ? C.rose : "#7C3AED" }}
+                                >
+                                  {eveningPreview.startsWith("Error") ? eveningPreview : "✓ Sent! " + eveningPreview.slice(0, 80) + "…"}
+                                </motion.p>
+                              )}
+                            </AnimatePresence>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Focus Timer + Brain Dump row */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        {/* Pomodoro Focus Timer */}
+                        <motion.div {...cardHover}>
+                          <Card className="rounded-3xl shadow-none h-full" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                            <CardContent className="pt-5 pb-5">
+                              <div className="flex items-center justify-between mb-3">
+                                <p className="font-serif text-base font-semibold" style={{ color: C.warmBlack }}>
+                                  {focusMode === "work" ? "🧠 Focus Timer" : "☕ Break Time"}
+                                </p>
+                                <div className="flex gap-1.5">
+                                  {[25, 45, 60].map((m) => (
+                                    <motion.button key={m} {...btnTap}
+                                      onClick={() => { if (!focusActive) { setFocusMinutes(m); setFocusSeconds(0); } }}
+                                      className="text-xs px-2 py-0.5 rounded-full border"
+                                      style={{ background: focusMinutes === m && !focusActive ? C.forest + "18" : "transparent", color: focusMinutes === m && !focusActive ? C.forest : C.charcoal, borderColor: "#DDD7CD" }}
+                                    >{m}m</motion.button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="text-center my-3">
+                                <motion.p
+                                  className="font-mono text-5xl font-bold tracking-tight"
+                                  style={{ color: focusActive ? C.forest : C.warmBlack }}
+                                  animate={focusActive ? { scale: [1, 1.01, 1] } : { scale: 1 }}
+                                  transition={{ repeat: Infinity, duration: 2 }}
+                                >
+                                  {String(focusMinutes).padStart(2, "0")}:{String(focusSeconds).padStart(2, "0")}
+                                </motion.p>
+                                <p className="text-xs mt-1" style={{ color: C.charcoal }}>
+                                  {focusMode === "work" ? "Deep work session" : "Rest your nervous system"}
+                                </p>
+                              </div>
+                              <div className="flex gap-2 justify-center">
+                                <motion.button
+                                  {...btnTap}
+                                  onClick={() => setFocusActive((a) => !a)}
+                                  className="px-6 py-2 rounded-full text-sm font-semibold"
+                                  style={{ background: focusActive ? C.rose : C.forest, color: C.bone }}
+                                >
+                                  {focusActive ? "⏸ Pause" : "▶ Start"}
+                                </motion.button>
+                                <motion.button
+                                  {...btnTap}
+                                  onClick={() => { setFocusActive(false); setFocusMinutes(25); setFocusSeconds(0); setFocusMode("work"); }}
+                                  className="px-4 py-2 rounded-full text-sm border"
+                                  style={{ borderColor: "#DDD7CD", color: C.charcoal }}
+                                >↺ Reset</motion.button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+
+                        {/* Brain Dump */}
+                        <motion.div {...cardHover}>
+                          <Card className="rounded-3xl shadow-none h-full" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                            <CardContent className="pt-5 pb-5 h-full flex flex-col">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="font-serif text-base font-semibold" style={{ color: C.warmBlack }}>🧹 Brain Dump</p>
+                                <AnimatePresence>
+                                  {brainDumpSaved && (
+                                    <motion.span initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="text-xs" style={{ color: C.forest }}>Saved ✓</motion.span>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                              <p className="text-xs mb-2" style={{ color: C.charcoal }}>Dump thoughts here so they don&apos;t hijack your focus. No judgment.</p>
+                              <textarea
+                                value={brainDump}
+                                onChange={(e) => {
+                                  setBrainDump(e.target.value);
+                                  setBrainDumpSaved(false);
+                                  if (brainDumpTimer.current) clearTimeout(brainDumpTimer.current);
+                                  brainDumpTimer.current = setTimeout(async () => {
+                                    await fetch("/api/life", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "save_brain_dump", brain_dump: e.target.value }) });
+                                    setBrainDumpSaved(true);
+                                    setTimeout(() => setBrainDumpSaved(false), 2000);
+                                  }, 800);
+                                }}
+                                placeholder="What's bouncing around in your head right now?  Let it out. ✨"
+                                rows={5}
+                                className="flex-1 text-sm px-3 py-2 rounded-xl border resize-none w-full"
+                                style={{ borderColor: "#DDD7CD", background: C.ivory, color: C.warmBlack }}
+                              />
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* HABITS view — weekly grid grouped by category */}
+                  {lifeTab === "habits" && (
+                    <motion.div key="habits" {...FADE_BLUR} className="space-y-4">
+                    {(() => {
+                      const weekDays = Array.from({ length: 7 }, (_, i) => {
+                        const d = new Date((lifeData?.weekStart ?? new Date().toISOString().split("T")[0]) + "T12:00:00");
+                        d.setDate(d.getDate() + i);
+                        return d.toISOString().split("T")[0];
+                      });
+                      const dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+                      const CAT_ORDER = ["morning","mindfulness","spiritual","health","pet","wellness","chores","work","learning"];
+                      const CAT_LABELS: Record<string,string> = {
+                        morning:"🌅 Morning Routine", mindfulness:"🧘🏾 Mindfulness", spiritual:"🙏🏾 Spiritual",
+                        health:"💪🏾 Health", pet:"🐕 Brownie", wellness:"🌿 Wellness",
+                        chores:"🧹 Chores", work:"💼 Work", learning:"📚 Learning",
+                      };
+                      const todayLogged = (lifeData?.habitLogs ?? []).filter(l => l.logged_date === lifeData?.today).length;
+                      const total = (lifeData?.habits ?? []).length;
+                      const pct = total > 0 ? Math.round((todayLogged / total) * 100) : 0;
+
+                      const grouped = CAT_ORDER.map(cat => ({
+                        cat, label: CAT_LABELS[cat] ?? cat,
+                        habits: (lifeData?.habits ?? []).filter(h => h.category === cat)
+                      })).filter(g => g.habits.length > 0);
+
+                      return (
+                        <>
+                          {/* Progress bar */}
+                          <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                            <CardContent className="pt-5 pb-5">
+                              <div className="flex items-center justify-between mb-3">
+                                <p className="font-serif text-lg font-semibold" style={{ color: C.warmBlack }}>This Week&apos;s Progress</p>
+                                <span className="text-sm font-semibold" style={{ color: C.forest }}>{todayLogged}/{total} today · {pct}%</span>
+                              </div>
+                              <div className="h-2 rounded-full overflow-hidden" style={{ background: N.border }}>
+                                <motion.div
+                                  className="h-full rounded-full"
+                                  style={{ background: C.forest }}
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${pct}%` }}
+                                  transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
+                              </div>
+                              {pct === 100 && (
+                                <motion.p
+                                  initial={{ opacity: 0, y: 4 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="text-xs font-semibold mt-2 text-center"
+                                  style={{ color: C.gold }}
+                                >QUEEN MODE — all habits done 👑✨</motion.p>
+                              )}
+                            </CardContent>
+                          </Card>
+
+                          {/* Weekly grid per category */}
+                          {grouped.map(({ cat, label, habits: catHabits }) => (
+                            <Card key={cat} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                              <CardHeader className="pb-2 pt-4">
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest" style={{ color: C.charcoal }}>{label}</CardTitle>
+                              </CardHeader>
+                              <CardContent className="pb-4">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr>
+                                        <th className="text-left pb-2 pr-4 font-medium min-w-[130px]" style={{ color: C.charcoal }}>Habit</th>
+                                        {weekDays.map((d, i) => (
+                                          <th key={d} className="text-center pb-2 px-1.5 font-medium" style={{ color: d === lifeData?.today ? C.forest : C.charcoal }}>
+                                            <span className="block">{dayLabels[i]}</span>
+                                            <span className="block" style={{ color: C.charcoal, fontWeight: 400 }}>{d.slice(8)}</span>
+                                          </th>
+                                        ))}
+                                        <th className="text-center pb-2 px-2 font-medium" style={{ color: C.charcoal }}>Total</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {catHabits.map((habit) => {
+                                        const count = weekDays.filter(d => (lifeData?.habitLogs ?? []).some(l => l.habit_id === habit.id && l.logged_date === d)).length;
+                                        return (
+                                          <tr key={habit.id} className="border-t" style={{ borderColor: "#DDD7CD" }}>
+                                            <td className="py-2 pr-4 whitespace-nowrap">
+                                              <span className="mr-1.5">{habit.emoji}</span>
+                                              <span style={{ color: C.warmBlack }}>{habit.name}</span>
+                                            </td>
+                                            {weekDays.map(d => {
+                                              const logged = (lifeData?.habitLogs ?? []).some(l => l.habit_id === habit.id && l.logged_date === d);
+                                              const isFuture = d > (lifeData?.today ?? "");
+                                              const justDoneGrid = !isFuture && habitJustLogged.has(habit.id + d);
+                                              return (
+                                                <td key={d} className="text-center py-2 px-1.5">
+                                                  <motion.button
+                                                    disabled={isFuture}
+                                                    onClick={() => {
+                                                      if (!logged) {
+                                                        setHabitJustLogged(s => new Set([...s, habit.id + d]));
+                                                        setTimeout(() => setHabitJustLogged(s => { const n = new Set(s); n.delete(habit.id + d); return n; }), 600);
+                                                      }
+                                                      lifePost({ type: "toggle_habit", habitId: habit.id, date: d, logged });
+                                                    }}
+                                                    animate={justDoneGrid ? { scale: [1, 1.45, 0.85, 1.1, 1] } : { scale: 1 }}
+                                                    transition={{ duration: 0.4, ease: "easeOut" }}
+                                                    className="w-7 h-7 rounded-full border text-sm font-bold transition-colors duration-150 disabled:opacity-25"
+                                                    style={{
+                                                      background: logged ? C.forest : "transparent",
+                                                      borderColor: logged ? C.forest : N.border,
+                                                      color: logged ? "#FFF" : C.charcoal,
+                                                    }}
+                                                  >
+                                                    {logged ? "✓" : "·"}
+                                                  </motion.button>
+                                                </td>
+                                              );
+                                            })}
+                                            <td className="text-center py-2 font-bold text-xs" style={{ color: count >= 5 ? C.forest : count >= 3 ? C.gold : C.charcoal }}>
+                                              {count}/7
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </>
+                      );
+                    })()}
+                    </motion.div>
+                  )}
+
+                  {/* TASKS view */}
+                  {lifeTab === "tasks" && (
+                    <motion.div key="tasks" {...FADE_BLUR} className="space-y-3">
+                      {/* Add task form */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader><CardTitle className="font-serif text-xl">📋 Tasks</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="flex gap-2 flex-wrap">
+                            <input value={newTask.title} onChange={(e) => setNewTask((s) => ({ ...s, title: e.target.value }))} placeholder="Add a task..." className="flex-1 text-sm px-3 py-2 rounded-xl border min-w-48" style={{ borderColor: "#DDD7CD", background: C.ivory }} onKeyDown={(e) => e.key === "Enter" && newTask.title && lifePost({ type: "add_task", ...newTask }).then(() => setNewTask({ title: "", priority: "medium", category: "personal", due_date: "" }))} />
+                            <select value={newTask.priority} onChange={(e) => setNewTask((s) => ({ ...s, priority: e.target.value }))} className="text-xs px-2 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }}>
+                              <option value="high">🔥 High</option>
+                              <option value="medium">⚡ Medium</option>
+                              <option value="low">📝 Low</option>
+                            </select>
+                            <select value={newTask.category} onChange={(e) => setNewTask((s) => ({ ...s, category: e.target.value }))} className="text-xs px-2 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }}>
+                              <option value="personal">💜 Personal</option>
+                              <option value="business">💼 Business</option>
+                              <option value="self_care">🌿 Self Care</option>
+                              <option value="health">💪🏾 Health</option>
+                              <option value="admin">📋 Admin</option>
+                            </select>
+                            <input type="date" value={newTask.due_date} onChange={(e) => setNewTask((s) => ({ ...s, due_date: e.target.value }))} className="text-xs px-2 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            <button onClick={() => { if (!newTask.title) return; setAddingTask(true); lifePost({ type: "add_task", ...newTask }).then(() => { setNewTask({ title: "", priority: "medium", category: "personal", due_date: "" }); setAddingTask(false); }); }} disabled={!newTask.title || addingTask} className="text-xs px-4 py-2 rounded-full disabled:opacity-40" style={{ background: C.forest, color: C.bone }}>Add</button>
+                          </div>
+
+                          {/* Open tasks */}
+                          <div className="space-y-2">
+                            {(["high","medium","low"] as const).map((pri) => {
+                              const priTasks = (lifeData?.tasks ?? []).filter((t) => t.priority === pri && (t.status === "open" || t.status === "in_progress"));
+                              if (!priTasks.length) return null;
+                              const priEmoji = { high: "🔥", medium: "⚡", low: "📝" }[pri];
+                              return (
+                                <div key={pri}>
+                                  <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: C.charcoal }}>{priEmoji} {pri} priority</p>
+                                  <AnimatePresence>
+                                    {priTasks.map((task) => (
+                                      <motion.div
+                                        key={task.id}
+                                        layout
+                                        initial={{ opacity: 0, x: -12 }}
+                                        animate={{ opacity: completingTaskId === task.id ? 0.4 : 1, x: 0, scale: completingTaskId === task.id ? 0.97 : 1 }}
+                                        exit={{ opacity: 0, x: 40, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}
+                                        transition={{ duration: 0.3, ease: "easeOut" }}
+                                        className="flex items-center gap-2 p-3 rounded-xl mb-1"
+                                        style={{ background: N.hover }}
+                                      >
+                                        <motion.button
+                                          whileHover={{ scale: 1.15 }}
+                                          whileTap={{ scale: 0.9 }}
+                                          onClick={() => completeTaskAnimated(task.id)}
+                                          className="w-5 h-5 rounded-full border flex items-center justify-center shrink-0"
+                                          style={{ borderColor: C.forest, color: C.forest }}
+                                        >·</motion.button>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm" style={{ color: N.text }}>{task.title}</p>
+                                          {task.due_date && <p className="text-xs" style={{ color: task.due_date < (lifeData?.today ?? "") ? C.rose : N.muted }}>{task.due_date < (lifeData?.today ?? "") ? `⚠️ Overdue (${task.due_date})` : `Due ${task.due_date}`}</p>}
+                                        </div>
+                                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: N.active, color: N.muted }}>{task.category.replace("_"," ")}</span>
+                                      </motion.div>
+                                    ))}
+                                  </AnimatePresence>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Completed today */}
+                          {(lifeData?.tasks ?? []).filter((t) => t.status === "done" && t.completed_at?.startsWith(lifeData?.today ?? "")).length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: C.forest }}>✓ Completed today</p>
+                              {(lifeData?.tasks ?? []).filter((t) => t.status === "done" && t.completed_at?.startsWith(lifeData?.today ?? "")).map((task) => (
+                                <div key={task.id} className="flex items-center gap-2 p-3 rounded-2xl mb-1 opacity-60" style={{ background: C.ivory }}>
+                                  <span style={{ color: C.forest }}>✓</span>
+                                  <p className="text-sm line-through" style={{ color: C.charcoal }}>{task.title}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {/* WEEKLY view */}
+                  {lifeTab === "weekly" && (
+                    <motion.div key="weekly" {...FADE_BLUR} className="space-y-4">
+                      {/* Week Plan */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <CardTitle className="font-serif text-xl">📅 Week of {lifeData?.weekStart}</CardTitle>
+                              <CardDescription style={{ color: C.charcoal }}>Set your intentions, word, and goals for this week.</CardDescription>
+                            </div>
+                            <button onClick={() => setWeekEdit(!weekEdit)} className="text-xs px-3 py-1 rounded-full" style={{ background: C.forest + "18", color: C.forest }}>{weekEdit ? "Cancel" : "Edit"}</button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {weekEdit ? (
+                            <div className="space-y-3">
+                              <div>
+                                <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Word of the week</p>
+                                <input value={weekDraft.word_of_week} onChange={(e) => setWeekDraft((s) => ({ ...s, word_of_week: e.target.value }))} placeholder="Grounded" className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Main focus</p>
+                                <textarea value={weekDraft.main_focus} onChange={(e) => setWeekDraft((s) => ({ ...s, main_focus: e.target.value }))} rows={2} placeholder="What matters most this week..." className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Goals (up to 4)</p>
+                                {weekDraft.goals.map((g, i) => (
+                                  <input key={i} value={g} onChange={(e) => setWeekDraft((s) => { const goals = [...s.goals]; goals[i] = e.target.value; return { ...s, goals }; })} placeholder={`Goal ${i + 1}`} className="w-full text-sm px-3 py-2 rounded-xl border mb-1" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                                ))}
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Weekly intentions / reflection</p>
+                                <textarea value={weekDraft.intentions} onChange={(e) => setWeekDraft((s) => ({ ...s, intentions: e.target.value }))} rows={3} placeholder="What do you want to feel, release, or protect this week..." className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                              </div>
+                              <button onClick={async () => { await lifePost({ type: "save_week_plan", week_start: lifeData?.weekStart, ...weekDraft, goals: weekDraft.goals.filter(Boolean) }); setWeekEdit(false); }} className="text-xs px-4 py-2 rounded-full" style={{ background: C.forest, color: C.bone }}>Save Week Plan</button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-3">
+                                {lifeData?.weekPlan?.word_of_week && (
+                                  <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                                    <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Word of the Week</p>
+                                    <p className="text-xl font-serif font-bold uppercase tracking-widest" style={{ color: C.gold }}>{lifeData.weekPlan.word_of_week}</p>
+                                  </div>
+                                )}
+                                {lifeData?.weekPlan?.main_focus && (
+                                  <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                                    <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Main Focus</p>
+                                    <p className="text-sm" style={{ color: C.warmBlack }}>{lifeData.weekPlan.main_focus}</p>
+                                  </div>
+                                )}
+                                {lifeData?.weekPlan?.intentions && (
+                                  <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                                    <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Intentions</p>
+                                    <p className="text-sm" style={{ color: C.warmBlack }}>{lifeData.weekPlan.intentions}</p>
+                                  </div>
+                                )}
+                                {!lifeData?.weekPlan && <p className="text-sm italic" style={{ color: C.charcoal }}>No week plan yet — click Edit to set one. 📅</p>}
+                              </div>
+                              <div>
+                                {(lifeData?.weekPlan?.goals ?? []).filter(Boolean).length > 0 && (
+                                  <div className="p-4 rounded-2xl" style={{ background: C.ivory }}>
+                                    <p className="text-xs font-medium mb-2" style={{ color: C.charcoal }}>This Week&apos;s Goals</p>
+                                    <div className="space-y-2">
+                                      {(lifeData?.weekPlan?.goals ?? []).filter(Boolean).map((g, i) => (
+                                        <div key={i} className="flex items-start gap-2 text-sm" style={{ color: C.warmBlack }}>
+                                          <span className="mt-0.5 shrink-0" style={{ color: C.forest }}>✦</span> {g}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* Week habit summary */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader>
+                          <CardTitle className="font-serif text-xl">🌿 Habit Progress This Week</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {(() => {
+                            const weekDays = Array.from({ length: 7 }, (_, i) => {
+                              const d = new Date((lifeData?.weekStart ?? new Date().toISOString().slice(0,10)) + "T12:00:00");
+                              d.setDate(d.getDate() + i);
+                              return d.toISOString().split("T")[0];
+                            });
+                            const totalPossible = (lifeData?.habits ?? []).length * weekDays.filter((d) => d <= (lifeData?.today ?? "")).length;
+                            const totalLogged = (lifeData?.habitLogs ?? []).filter((l) => weekDays.includes(l.logged_date)).length;
+                            return (
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-4 p-4 rounded-2xl" style={{ background: C.ivory }}>
+                                  <div className="text-3xl font-bold font-serif" style={{ color: C.forest }}>{totalPossible > 0 ? Math.round((totalLogged / totalPossible) * 100) : 0}%</div>
+                                  <div>
+                                    <p className="text-sm font-medium" style={{ color: C.warmBlack }}>{totalLogged} of {totalPossible} habit-days logged</p>
+                                    <p className="text-xs" style={{ color: C.charcoal }}>Through {weekDays.filter((d) => d <= (lifeData?.today ?? "")).length} days so far this week</p>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  {(lifeData?.habits ?? []).map((habit) => {
+                                    const count = weekDays.filter((d) => (lifeData?.habitLogs ?? []).some((l) => l.habit_id === habit.id && l.logged_date === d)).length;
+                                    const pct = Math.round((count / 7) * 100);
+                                    return (
+                                      <div key={habit.id} className="flex items-center gap-3">
+                                        <span className="text-lg w-6">{habit.emoji}</span>
+                                        <span className="text-xs w-28 shrink-0" style={{ color: C.charcoal }}>{habit.name}</span>
+                                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "#DDD7CD" }}>
+                                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: count >= 5 ? C.forest : count >= 3 ? C.gold : C.rose }} />
+                                        </div>
+                                        <span className="text-xs w-8 text-right font-semibold" style={{ color: count >= 5 ? C.forest : count >= 3 ? C.gold : C.charcoal }}>{count}/7</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </CardContent>
+                      </Card>
+
+                      {/* Open tasks summary for the week */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader>
+                          <CardTitle className="font-serif text-xl">📋 Tasks This Week</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {[
+                              { label: "Open", count: (lifeData?.tasks ?? []).filter((t) => t.status === "open").length, color: C.charcoal },
+                              { label: "In Progress", count: (lifeData?.tasks ?? []).filter((t) => t.status === "in_progress").length, color: C.gold },
+                              { label: "Completed Today", count: (lifeData?.tasks ?? []).filter((t) => t.status === "done" && t.completed_at?.startsWith(lifeData?.today ?? "")).length, color: C.forest },
+                            ].map(({ label, count, color }) => (
+                              <div key={label} className="p-4 rounded-2xl text-center" style={{ background: C.ivory }}>
+                                <p className="text-3xl font-bold font-serif" style={{ color }}>{count}</p>
+                                <p className="text-xs mt-1" style={{ color: C.charcoal }}>{label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {/* ─── MONTHLY REVIEW ─── */}
+                  {lifeTab === "monthly" && (
+                    <motion.div key="monthly" {...FADE_BLUR} className="space-y-4">
+                      {/* Header */}
+                      <div className="flex items-center justify-between p-4 rounded-3xl border" style={{ background: "linear-gradient(135deg, #1C3A2A11, #B8A06A11)", borderColor: "#DDD7CD" }}>
+                        <div>
+                          <p className="font-serif text-xl font-semibold" style={{ color: C.warmBlack }}>
+                            🗓️ {new Date((lifeData?.currentMonth ?? "") + "-15").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: C.charcoal }}>Monthly reflection + goal tracking</p>
+                        </div>
+                        <AnimatePresence>
+                          {monthSaved && <motion.span initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="text-sm font-medium" style={{ color: C.forest }}>Saved ✓</motion.span>}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Word of the Month + Reflection side-by-side */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardHeader><CardTitle className="font-serif text-lg">✨ Word of the Month</CardTitle></CardHeader>
+                          <CardContent>
+                            <input value={monthDraft.word_of_month} onChange={(e) => setMonthDraft((s) => ({ ...s, word_of_month: e.target.value }))} placeholder="What word defines this month?" className="w-full text-base font-serif px-4 py-3 rounded-2xl border text-center" style={{ borderColor: "#DDD7CD", background: C.ivory, color: C.warmBlack }} />
+                          </CardContent>
+                        </Card>
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardHeader><CardTitle className="font-serif text-lg">📊 Habit Summary</CardTitle></CardHeader>
+                          <CardContent className="space-y-2">
+                            {(lifeData?.habits ?? []).slice(0, 4).map((h) => {
+                              const logs = (lifeData?.habitLogsMonth ?? []).filter((l) => l.habit_id === h.id).length;
+                              const daysInMonth = new Date((lifeData?.currentYear ?? 2026), parseInt((lifeData?.currentMonth ?? "2026-01").split("-")[1]), 0).getDate();
+                              const pct = Math.round((logs / daysInMonth) * 100);
+                              return (
+                                <div key={h.id}>
+                                  <div className="flex justify-between text-xs mb-0.5">
+                                    <span style={{ color: C.warmBlack }}>{h.emoji} {h.name}</span>
+                                    <span style={{ color: C.charcoal }}>{logs}/{daysInMonth} days ({pct}%)</span>
+                                  </div>
+                                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#DDD7CD" }}>
+                                    <motion.div className="h-full rounded-full" style={{ background: C.forest }} animate={{ width: `${pct}%` }} transition={SPRING_SLOW} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Monthly Goals */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader><CardTitle className="font-serif text-lg">🎯 Monthly Goals</CardTitle></CardHeader>
+                        <CardContent className="space-y-2">
+                          {monthDraft.top_goals.map((goal, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <motion.button
+                                {...btnTap}
+                                onClick={() => setMonthDraft((s) => { const c = [...s.goals_completed]; c[i] = !c[i]; return { ...s, goals_completed: c }; })}
+                                className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 text-sm"
+                                style={{ background: monthDraft.goals_completed[i] ? C.forest : "transparent", borderColor: C.forest, color: C.bone }}
+                              >{monthDraft.goals_completed[i] ? "✓" : ""}</motion.button>
+                              <input
+                                value={goal}
+                                onChange={(e) => setMonthDraft((s) => { const g = [...s.top_goals]; g[i] = e.target.value; return { ...s, top_goals: g }; })}
+                                placeholder={`Goal ${i + 1}...`}
+                                className="flex-1 text-sm px-3 py-2 rounded-xl border"
+                                style={{ borderColor: "#DDD7CD", background: C.ivory, textDecoration: monthDraft.goals_completed[i] ? "line-through" : "none", color: monthDraft.goals_completed[i] ? C.charcoal : C.warmBlack }}
+                              />
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Books completed this month */}
+                      {(() => {
+                        const completedThisMonth = (lifeData?.books ?? []).filter((b) => b.completed_at?.startsWith(lifeData?.currentMonth ?? ""));
+                        return completedThisMonth.length > 0 ? (
+                          <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                            <CardHeader><CardTitle className="font-serif text-lg">📚 Completed This Month</CardTitle></CardHeader>
+                            <CardContent>
+                              <div className="flex gap-3 flex-wrap">
+                                {completedThisMonth.map((b) => (
+                                  <div key={b.id} className="flex items-center gap-2 px-3 py-2 rounded-2xl" style={{ background: C.ivory }}>
+                                    {b.cover_url ? <img src={b.cover_url} alt={b.title} className="w-8 h-10 object-cover rounded-lg" /> : <span className="text-2xl">{b.media_type === "album" ? "🎵" : b.media_type === "audiobook" ? "🎧" : "📖"}</span>}
+                                    <div>
+                                      <p className="text-xs font-medium" style={{ color: C.warmBlack }}>{b.title}</p>
+                                      {b.author && <p className="text-xs" style={{ color: C.charcoal }}>{b.author}</p>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ) : null;
+                      })()}
+
+                      {/* Wins + Growth + Gratitude */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                          { key: "big_wins" as const, label: "🏆 Big Wins", placeholder: "Win this month..." },
+                          { key: "growth_areas" as const, label: "🌱 Growth Areas", placeholder: "What I'm working on..." },
+                          { key: "grateful_for" as const, label: "💜 Grateful For", placeholder: "I'm grateful for..." },
+                        ].map(({ key, label, placeholder }) => (
+                          <Card key={key} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                            <CardHeader><CardTitle className="font-serif text-base">{label}</CardTitle></CardHeader>
+                            <CardContent className="space-y-2">
+                              {monthDraft[key].map((val, i) => (
+                                <input key={i} value={val} onChange={(e) => setMonthDraft((s) => { const arr = [...s[key]]; arr[i] = e.target.value; return { ...s, [key]: arr }; })} placeholder={placeholder} className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                              ))}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+
+                      {/* Reflection */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader><CardTitle className="font-serif text-lg">🪞 Monthly Reflection</CardTitle></CardHeader>
+                        <CardContent className="space-y-2">
+                          <p className="text-xs" style={{ color: C.charcoal }}>What do you want to carry into next month? What are you leaving behind?</p>
+                          <textarea value={monthDraft.reflection} onChange={(e) => setMonthDraft((s) => ({ ...s, reflection: e.target.value }))} placeholder="This month I learned..." rows={4} className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                          <motion.button {...btnTap} onClick={async () => {
+                            await lifePost({ type: "save_monthly_review", month: lifeData?.currentMonth, ...monthDraft, top_goals: monthDraft.top_goals.filter(Boolean), big_wins: monthDraft.big_wins.filter(Boolean), growth_areas: monthDraft.growth_areas.filter(Boolean), grateful_for: monthDraft.grateful_for.filter(Boolean) });
+                            setMonthSaved(true); setTimeout(() => setMonthSaved(false), 2500);
+                          }} className="w-full py-3 rounded-2xl text-sm font-semibold" style={{ background: C.forest, color: C.bone }}>Save Monthly Review ✓</motion.button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {/* ─── QUARTERLY REVIEW ─── */}
+                  {lifeTab === "quarterly" && (
+                    <motion.div key="quarterly" {...FADE_BLUR} className="space-y-4">
+                      {/* Header */}
+                      <div className="flex items-center justify-between p-4 rounded-3xl border" style={{ background: "linear-gradient(135deg, #B8A06A11, #C4A09A11)", borderColor: "#DDD7CD" }}>
+                        <div>
+                          <p className="font-serif text-xl font-semibold" style={{ color: C.warmBlack }}>📊 {lifeData?.currentQuarter ?? "Q2 2026"}</p>
+                          <p className="text-xs mt-0.5" style={{ color: C.charcoal }}>Business · Finances · Strategy</p>
+                        </div>
+                        <AnimatePresence>
+                          {quarterSaved && <motion.span initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="text-sm font-medium" style={{ color: C.forest }}>Saved ✓</motion.span>}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Revenue + Savings */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardHeader><CardTitle className="font-serif text-lg">💰 Revenue</CardTitle></CardHeader>
+                          <CardContent className="space-y-3">
+                            <div>
+                              <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Target ($)</p>
+                              <input type="number" value={quarterDraft.revenue_target} onChange={(e) => setQuarterDraft((s) => ({ ...s, revenue_target: e.target.value }))} placeholder="0" className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Actual ($)</p>
+                              <input type="number" value={quarterDraft.revenue_actual} onChange={(e) => setQuarterDraft((s) => ({ ...s, revenue_actual: e.target.value }))} placeholder="0" className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            </div>
+                            {quarterDraft.revenue_target && quarterDraft.revenue_actual && (
+                              <div className="p-2 rounded-xl text-center" style={{ background: Number(quarterDraft.revenue_actual) >= Number(quarterDraft.revenue_target) ? C.forest + "15" : C.rose + "15" }}>
+                                <p className="text-sm font-semibold" style={{ color: Number(quarterDraft.revenue_actual) >= Number(quarterDraft.revenue_target) ? C.forest : C.rose }}>
+                                  {Math.round((Number(quarterDraft.revenue_actual) / Number(quarterDraft.revenue_target)) * 100)}% of goal
+                                </p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardHeader><CardTitle className="font-serif text-lg">🏦 Savings</CardTitle></CardHeader>
+                          <CardContent className="space-y-3">
+                            <div>
+                              <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Target ($)</p>
+                              <input type="number" value={quarterDraft.savings_target} onChange={(e) => setQuarterDraft((s) => ({ ...s, savings_target: e.target.value }))} placeholder="0" className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Actual ($)</p>
+                              <input type="number" value={quarterDraft.savings_actual} onChange={(e) => setQuarterDraft((s) => ({ ...s, savings_actual: e.target.value }))} placeholder="0" className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            </div>
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>New Clients</p>
+                                <input type="number" value={quarterDraft.new_clients} onChange={(e) => setQuarterDraft((s) => ({ ...s, new_clients: e.target.value }))} placeholder="0" className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Leads</p>
+                                <input type="number" value={quarterDraft.leads_generated} onChange={(e) => setQuarterDraft((s) => ({ ...s, leads_generated: e.target.value }))} placeholder="0" className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Quarterly Goals */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader><CardTitle className="font-serif text-lg">🎯 Quarterly Goals</CardTitle></CardHeader>
+                        <CardContent className="space-y-2">
+                          {quarterDraft.quarterly_goals.map((goal, i) => (
+                            <div key={i} className="flex gap-2">
+                              <input value={goal} onChange={(e) => setQuarterDraft((s) => { const g = [...s.quarterly_goals]; g[i] = e.target.value; return { ...s, quarterly_goals: g }; })} placeholder={`Quarterly goal ${i + 1}...`} className="flex-1 text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                              <select value={quarterDraft.goals_status[i]} onChange={(e) => setQuarterDraft((s) => { const g = [...s.goals_status]; g[i] = e.target.value; return { ...s, goals_status: g }; })} className="text-xs px-2 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }}>
+                                <option value="">Status</option>
+                                <option value="on_track">✅ On Track</option>
+                                <option value="at_risk">⚠️ At Risk</option>
+                                <option value="completed">🏆 Done</option>
+                                <option value="paused">⏸ Paused</option>
+                              </select>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Reflection */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                          { key: "what_worked" as const, label: "✅ What Worked", placeholder: "Strategies, habits, decisions that moved the needle..." },
+                          { key: "what_to_change" as const, label: "🔄 What to Change", placeholder: "What didn't serve you? What needs a new approach?" },
+                          { key: "next_quarter_focus" as const, label: "🔮 Next Quarter Focus", placeholder: "What's the ONE thing that will change everything next quarter?" },
+                        ].map(({ key, label, placeholder }) => (
+                          <Card key={key} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                            <CardHeader><CardTitle className="font-serif text-base">{label}</CardTitle></CardHeader>
+                            <CardContent>
+                              <textarea value={quarterDraft[key]} onChange={(e) => setQuarterDraft((s) => ({ ...s, [key]: e.target.value }))} placeholder={placeholder} rows={4} className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+
+                      {/* ─── Personal Life Section ─── */}
+                      <div className="pt-2 pb-1">
+                        <p className="text-xs font-semibold uppercase tracking-widest px-1 mb-3" style={{ color: "#7C6B9E" }}>🫀 Personal Life — This Quarter</p>
+                      </div>
+
+                      {/* Alignment score */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader><CardTitle className="font-serif text-base">🧭 Values Alignment</CardTitle></CardHeader>
+                        <CardContent>
+                          <p className="text-xs mb-2" style={{ color: C.charcoal }}>How aligned were you with your core values this quarter? (1 = drifted · 5 = deeply aligned)</p>
+                          <div className="flex gap-2">
+                            {[1,2,3,4,5].map((n) => (
+                              <button key={n} onClick={() => setQuarterDraft((s) => ({ ...s, alignment_score: n }))}
+                                className="w-10 h-10 rounded-full border text-sm font-semibold transition-all"
+                                style={{ background: quarterDraft.alignment_score === n ? "#7C6B9E" : C.ivory, color: quarterDraft.alignment_score === n ? C.bone : C.charcoal, borderColor: quarterDraft.alignment_score === n ? "#7C6B9E" : "#DDD7CD" }}>{n}</button>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                          { key: "personal_reflection" as const, label: "🌱 Personal Growth", placeholder: "How did you grow as a person this quarter? What shifted in how you see yourself?" },
+                          { key: "relationships_reflection" as const, label: "🤝 Relationships", placeholder: "How were your key relationships? Who poured into you? Who drained you? What needs tending?" },
+                          { key: "wellbeing_reflection" as const, label: "🧘🏾‍♀️ Mind & Body", placeholder: "How did you take care of yourself? What did your nervous system need more of? Less of?" },
+                        ].map(({ key, label, placeholder }) => (
+                          <Card key={key} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                            <CardHeader><CardTitle className="font-serif text-base">{label}</CardTitle></CardHeader>
+                            <CardContent>
+                              <textarea value={quarterDraft[key]} onChange={(e) => setQuarterDraft((s) => ({ ...s, [key]: e.target.value }))} placeholder={placeholder} rows={4} className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+
+                      <motion.button {...btnTap} onClick={async () => {
+                        const qInfo = lifeData ? { quarter: lifeData.currentQuarter, year: lifeData.currentYear, quarter_num: parseInt(lifeData.currentQuarter.split("Q")[1]) } : { quarter: "2026-Q2", year: 2026, quarter_num: 2 };
+                        await lifePost({ type: "save_quarterly_review", ...qInfo, ...quarterDraft, revenue_target: quarterDraft.revenue_target ? Number(quarterDraft.revenue_target) : null, revenue_actual: quarterDraft.revenue_actual ? Number(quarterDraft.revenue_actual) : null, new_clients: quarterDraft.new_clients ? Number(quarterDraft.new_clients) : null, leads_generated: quarterDraft.leads_generated ? Number(quarterDraft.leads_generated) : null, savings_target: quarterDraft.savings_target ? Number(quarterDraft.savings_target) : null, savings_actual: quarterDraft.savings_actual ? Number(quarterDraft.savings_actual) : null, quarterly_goals: quarterDraft.quarterly_goals.filter(Boolean) });
+                        setQuarterSaved(true); setTimeout(() => setQuarterSaved(false), 2500);
+                      }} className="w-full py-3 rounded-2xl text-sm font-semibold" style={{ background: C.forest, color: C.bone }}>Save Quarterly Review ✓</motion.button>
+                    </motion.div>
+                  )}
+
+                  {/* ─── ANNUAL REVIEW ─── */}
+                  {lifeTab === "annual" && (
+                    <motion.div key="annual" {...FADE_BLUR} className="space-y-4">
+                      {/* Header */}
+                      <div className="p-5 rounded-3xl border text-center" style={{ background: "linear-gradient(135deg, #1C3A2A, #2D5A40)", borderColor: "#B8A06A44" }}>
+                        <p className="font-serif text-3xl font-bold" style={{ color: "#F5F0E8" }}>🌟 {lifeData?.currentYear ?? 2026}</p>
+                        <p className="text-sm mt-1" style={{ color: "#B8A06A" }}>Your year in full. Reflect. Celebrate. Intend.</p>
+                        <AnimatePresence>
+                          {annualSaved && <motion.span initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-sm font-medium block mt-2" style={{ color: "#B8A06A" }}>Saved ✓</motion.span>}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Word of year + Vision */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardHeader><CardTitle className="font-serif text-lg">✨ Word of the Year</CardTitle></CardHeader>
+                          <CardContent>
+                            <input value={annualDraft.word_of_year} onChange={(e) => setAnnualDraft((s) => ({ ...s, word_of_year: e.target.value }))} placeholder="One word that defines your year..." className="w-full text-xl font-serif px-4 py-3 rounded-2xl border text-center" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                          </CardContent>
+                        </Card>
+                        <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                          <CardHeader><CardTitle className="font-serif text-lg">🔮 Vision Statement</CardTitle></CardHeader>
+                          <CardContent>
+                            <textarea value={annualDraft.vision_statement} onChange={(e) => setAnnualDraft((s) => ({ ...s, vision_statement: e.target.value }))} placeholder="Who are you becoming this year?" rows={3} className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* 4 Focus Buckets */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader>
+                          <CardTitle className="font-serif text-lg">🪣 4 Focus Buckets</CardTitle>
+                          <CardDescription style={{ color: C.charcoal }}>The 4 areas of your life you&apos;re intentionally investing in this year.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {annualDraft.focus_buckets.map((bucket, i) => (
+                            <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={STAGGER(i)} className="p-4 rounded-2xl border space-y-2" style={{ background: C.ivory, borderColor: "#DDD7CD" }}>
+                              <div className="flex gap-2">
+                                <input value={bucket.label} onChange={(e) => setAnnualDraft((s) => { const b = [...s.focus_buckets]; b[i] = { ...b[i], label: e.target.value }; return { ...s, focus_buckets: b }; })} className="text-sm font-semibold px-3 py-1.5 rounded-xl border flex-1" style={{ borderColor: "#DDD7CD", background: C.bone }} />
+                              </div>
+                              <input value={bucket.description} onChange={(e) => setAnnualDraft((s) => { const b = [...s.focus_buckets]; b[i] = { ...b[i], description: e.target.value }; return { ...s, focus_buckets: b }; })} placeholder="What does success in this area look like?" className="w-full text-xs px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.bone }} />
+                              <div className="grid grid-cols-2 gap-2">
+                                <textarea value={bucket.wins} onChange={(e) => setAnnualDraft((s) => { const b = [...s.focus_buckets]; b[i] = { ...b[i], wins: e.target.value }; return { ...s, focus_buckets: b }; })} placeholder="Wins in this area..." rows={2} className="text-xs px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.bone }} />
+                                <textarea value={bucket.grow} onChange={(e) => setAnnualDraft((s) => { const b = [...s.focus_buckets]; b[i] = { ...b[i], grow: e.target.value }; return { ...s, focus_buckets: b }; })} placeholder="Where to grow..." rows={2} className="text-xs px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.bone }} />
+                              </div>
+                            </motion.div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* 4 Reset Questions */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader>
+                          <CardTitle className="font-serif text-lg">🔄 4 Reset Questions</CardTitle>
+                          <CardDescription style={{ color: C.charcoal }}>Answer honestly. These are just for you.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {[
+                            { key: "reset_q1" as const, q: "What served me this year that I want to carry forward?" },
+                            { key: "reset_q2" as const, q: "What am I releasing — habits, relationships, beliefs, expectations?" },
+                            { key: "reset_q3" as const, q: "What am I calling in — who I am becoming, what I am building?" },
+                            { key: "reset_q4" as const, q: "If I could tell myself one thing at the start of next year, what would it be?" },
+                          ].map(({ key, q }, i) => (
+                            <motion.div key={key} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={STAGGER(i)}>
+                              <p className="text-xs font-semibold mb-1.5" style={{ color: C.charcoal }}>Q{i + 1}: {q}</p>
+                              <textarea value={annualDraft[key]} onChange={(e) => setAnnualDraft((s) => ({ ...s, [key]: e.target.value }))} rows={3} className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            </motion.div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Big Wins + Releasing + Calling In */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                          { key: "big_wins" as const, label: "🏆 Big Wins", placeholder: "A major win this year..." },
+                          { key: "releasing" as const, label: "🌬️ Releasing", placeholder: "Letting go of..." },
+                          { key: "calling_in" as const, label: "🌟 Calling In", placeholder: "Inviting into my life..." },
+                        ].map(({ key, label, placeholder }) => (
+                          <Card key={key} className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                            <CardHeader><CardTitle className="font-serif text-base">{label}</CardTitle></CardHeader>
+                            <CardContent className="space-y-2">
+                              {annualDraft[key].map((val, i) => (
+                                <input key={i} value={val} onChange={(e) => setAnnualDraft((s) => { const arr = [...s[key]] as string[]; arr[i] = e.target.value; return { ...s, [key]: arr }; })} placeholder={placeholder} className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                              ))}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+
+                      <motion.button {...btnTap} onClick={async () => {
+                        await lifePost({ type: "save_annual_review", year: lifeData?.currentYear ?? 2026, ...annualDraft, big_wins: annualDraft.big_wins.filter(Boolean), releasing: annualDraft.releasing.filter(Boolean), calling_in: annualDraft.calling_in.filter(Boolean) });
+                        setAnnualSaved(true);
+                        setTimeout(() => setAnnualSaved(false), 2500);
+                        triggerCelebration("Annual review saved! You did the work, Queen 👑✨");
+                      }} className="w-full py-3 rounded-2xl text-sm font-semibold" style={{ background: C.forest, color: C.bone }}>Save Annual Review ✓</motion.button>
+                    </motion.div>
+                  )}
+
+                  {/* LIBRARY view — books, audiobooks, albums with covers */}
+                  {lifeTab === "library" && (
+                    <motion.div key="library" {...FADE_BLUR} className="space-y-4">
+                      {/* Add new item */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader><CardTitle className="font-serif text-xl">📚 Add to Library</CardTitle></CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <input value={newBook.title} onChange={(e) => setNewBook((s) => ({ ...s, title: e.target.value }))} placeholder="Title *" className="text-sm px-3 py-2 rounded-xl border col-span-2" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            <input value={newBook.author} onChange={(e) => setNewBook((s) => ({ ...s, author: e.target.value }))} placeholder="Author / Artist" className="text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            <select value={newBook.media_type} onChange={(e) => setNewBook((s) => ({ ...s, media_type: e.target.value }))} className="text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }}>
+                              <option value="book">📖 Book</option>
+                              <option value="audiobook">🎧 Audiobook</option>
+                              <option value="album">🎵 Album</option>
+                            </select>
+                          </div>
+                          <input value={newBook.cover_url} onChange={(e) => setNewBook((s) => ({ ...s, cover_url: e.target.value }))} placeholder="Cover image URL (paste from Google Images, Amazon, etc.)" className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                          <div className="flex gap-2 items-center">
+                            {newBook.cover_url && <img src={newBook.cover_url} alt="preview" className="w-12 h-12 rounded-xl object-cover border" style={{ borderColor: "#DDD7CD" }} />}
+                            <button onClick={() => { if (!newBook.title) return; setAddingBook(true); lifePost({ type: "add_book", ...newBook }).then(() => { setNewBook({ title: "", author: "", genre: "", cover_url: "", media_type: "book" }); setAddingBook(false); }); }} disabled={!newBook.title || addingBook} className="text-xs px-5 py-2 rounded-full disabled:opacity-40 ml-auto" style={{ background: C.forest, color: C.bone }}>+ Add</button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Filters */}
+                      <div className="flex gap-2 flex-wrap">
+                        {(["all","book","audiobook","album"] as const).map((f) => (
+                          <button key={f} onClick={() => setLibFilter(f)} className="text-xs px-3 py-1.5 rounded-full border" style={{ background: libFilter === f ? C.forest : C.ivory, color: libFilter === f ? C.bone : C.charcoal, borderColor: libFilter === f ? C.forest : "#DDD7CD" }}>
+                            {f === "all" ? "All" : f === "book" ? "📖 Books" : f === "audiobook" ? "🎧 Audio" : "🎵 Albums"}
+                          </button>
+                        ))}
+                        <div className="w-px mx-1" style={{ background: "#DDD7CD" }} />
+                        {(["all","reading","want_to_read","completed"] as const).map((s) => (
+                          <button key={s} onClick={() => setLibStatus(s)} className="text-xs px-3 py-1.5 rounded-full border" style={{ background: libStatus === s ? C.gold : C.ivory, color: libStatus === s ? C.warmBlack : C.charcoal, borderColor: libStatus === s ? C.gold : "#DDD7CD" }}>
+                            {s === "all" ? "All Status" : s === "reading" ? "In Progress" : s === "want_to_read" ? "Wishlist" : "✅ Done"}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Grid with covers */}
+                      {(() => {
+                        const filtered = (lifeData?.books ?? []).filter((b) =>
+                          (libFilter === "all" || (b.media_type ?? "book") === libFilter) &&
+                          (libStatus === "all" || b.status === libStatus)
+                        );
+                        if (!filtered.length) return <p className="text-sm text-center py-8 italic" style={{ color: C.charcoal }}>Nothing here yet — add something above! ✨</p>;
+                        return (
+                          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                            {filtered.map((book) => (
+                              <motion.div key={book.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl overflow-hidden border group relative" style={{ background: C.ivory, borderColor: "#DDD7CD" }}>
+                                {/* Cover */}
+                                <div className="relative w-full aspect-[3/4] bg-gradient-to-br overflow-hidden" style={{ background: book.cover_url ? "transparent" : `linear-gradient(135deg, ${C.forest}22, ${C.gold}33)` }}>
+                                  {book.cover_url
+                                    ? <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
+                                    : <div className="w-full h-full flex items-center justify-center text-4xl">{(book.media_type ?? "book") === "album" ? "🎵" : (book.media_type ?? "book") === "audiobook" ? "🎧" : "📖"}</div>
+                                  }
+                                  {/* Status badge */}
+                                  <div className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: book.status === "completed" ? C.forest : book.status === "reading" ? C.gold : "#DDD7CD", color: book.status === "completed" ? C.bone : book.status === "reading" ? C.warmBlack : C.charcoal }}>
+                                    {book.status === "completed" ? "✓ Done" : book.status === "reading" ? "Reading" : "Wishlist"}
+                                  </div>
+                                </div>
+                                {/* Info */}
+                                <div className="p-3">
+                                  <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: C.warmBlack }}>{book.title}</p>
+                                  {book.author && <p className="text-[11px] mt-0.5 truncate" style={{ color: C.charcoal }}>{book.author}</p>}
+                                  <div className="flex gap-1 mt-2">
+                                    {book.status === "want_to_read" && <button onClick={() => lifePost({ type: "update_book", id: book.id, status: "reading" })} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: C.gold + "33", color: C.charcoal }}>Start</button>}
+                                    {book.status === "reading" && (
+                                      <button onClick={() => { lifePost({ type: "update_book", id: book.id, status: "completed" }); triggerCelebration(`Finished: ${book.title} 🎉`); }} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: C.forest + "22", color: C.forest }}>Finish ✓</button>
+                                    )}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </motion.div>
+                  )}
+
+                  {/* BUCKET LIST view */}
+                  {lifeTab === "bucket" && (
+                    <motion.div key="bucket" {...FADE_BLUR}>
+                    <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                      <CardHeader><CardTitle className="font-serif text-xl">🌍 Life Bucket List</CardTitle></CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex gap-2 flex-wrap">
+                          <input value={newBucket.title} onChange={(e) => setNewBucket((s) => ({ ...s, title: e.target.value }))} placeholder="Something you want to experience..." className="flex-1 text-sm px-3 py-2 rounded-xl border min-w-48" style={{ borderColor: "#DDD7CD", background: C.ivory }} onKeyDown={(e) => e.key === "Enter" && newBucket.title && lifePost({ type: "add_bucket", ...newBucket }).then(() => setNewBucket({ title: "", category: "experience" }))} />
+                          <select value={newBucket.category} onChange={(e) => setNewBucket((s) => ({ ...s, category: e.target.value }))} className="text-xs px-2 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }}>
+                            <option value="experience">✨ Experience</option>
+                            <option value="place">🌍 Place</option>
+                            <option value="food">🍽️ Food</option>
+                            <option value="adventure">🏔️ Adventure</option>
+                            <option value="learning">📚 Learning</option>
+                            <option value="relationship">💜 Relationship</option>
+                            <option value="creative">🎨 Creative</option>
+                          </select>
+                          <button onClick={() => { if (!newBucket.title) return; setAddingBucket(true); lifePost({ type: "add_bucket", ...newBucket }).then(() => { setNewBucket({ title: "", category: "experience" }); setAddingBucket(false); }); }} disabled={!newBucket.title || addingBucket} className="text-xs px-4 py-2 rounded-full disabled:opacity-40" style={{ background: C.forest, color: C.bone }}>Add</button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {(lifeData?.bucketList ?? []).map((item) => (
+                            <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl border transition-all" style={{ background: item.completed ? C.forest + "11" : C.ivory, borderColor: item.completed ? C.forest + "33" : "#DDD7CD" }}>
+                              <button onClick={() => { lifePost({ type: "toggle_bucket", id: item.id, completed: !item.completed }); if (!item.completed) triggerCelebration(`You did it! ${item.title} 🌍🎉`); }} className="w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-colors" style={{ background: item.completed ? C.forest : "transparent", borderColor: C.forest, color: item.completed ? C.bone : C.forest }}>
+                                {item.completed ? "✓" : ""}
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm ${item.completed ? "line-through opacity-60" : ""}`} style={{ color: C.warmBlack }}>{item.title}</p>
+                                <p className="text-xs" style={{ color: C.charcoal }}>{item.category}</p>
+                              </div>
+                              {item.completed_at && <span className="text-xs shrink-0" style={{ color: C.forest }}>🎉 {item.completed_at.slice(0,10)}</span>}
+                            </div>
+                          ))}
+                        </div>
+                        {(lifeData?.bucketList ?? []).length === 0 && (
+                          <p className="text-sm italic text-center py-8" style={{ color: C.charcoal }}>Your bucket list is empty — what do you want to do before you kick it? 🌍</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                    </motion.div>
+                  )}
+
+                  {/* WELLNESS view — water + sleep + medication */}
+                  {lifeTab === "wellness" && (
+                    <motion.div key="wellness" {...FADE_BLUR} className="space-y-4">
+                      {/* Water tracker */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="font-serif text-xl">💧 Water Intake</CardTitle>
+                            <span className="text-sm font-semibold" style={{ color: waterCups >= waterGoal ? C.forest : C.charcoal }}>{waterCups} / {waterGoal} cups</span>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Visual cup tracker */}
+                          <div className="flex gap-2 flex-wrap">
+                            {Array.from({ length: waterGoal }).map((_, i) => (
+                              <motion.button
+                                key={i}
+                                whileTap={{ scale: 0.85 }}
+                                animate={i < waterCups ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+                                onClick={() => {
+                                  const newCups = i < waterCups ? i : i + 1;
+                                  setWaterCups(newCups);
+                                  fetch("/api/life", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "set_water", cups: newCups, goal_cups: waterGoal }) });
+                                  if (newCups >= waterGoal) triggerCelebration("Hydrated Queen! 💧👑 All water done!");
+                                }}
+                                className="w-12 h-14 rounded-2xl border-2 flex items-end justify-center pb-1 text-lg transition-all"
+                                style={{ background: i < waterCups ? "#1C3A2A22" : C.ivory, borderColor: i < waterCups ? C.forest : "#DDD7CD" }}
+                              >
+                                {i < waterCups ? "💧" : "🫙"}
+                              </motion.button>
+                            ))}
+                          </div>
+                          <div className="h-3 rounded-full overflow-hidden" style={{ background: "#DDD7CD" }}>
+                            <motion.div className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${C.forest}, #4A9B8F)` }} animate={{ width: `${Math.min(100, (waterCups / waterGoal) * 100)}%` }} transition={{ duration: 0.4 }} />
+                          </div>
+                          <p className="text-xs text-center" style={{ color: C.charcoal }}>
+                            {waterCups === 0 ? "Start your first cup 💧" : waterCups < waterGoal ? `${waterGoal - waterCups} more to go — you got this! 💜` : "Goal reached! 🎉 Your body thanks you."}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      {/* Medication check-in */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader>
+                          <CardTitle className="font-serif text-xl">💊 Medication Check-In</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {(lifeData?.medications ?? []).length === 0 && (
+                            <p className="text-sm italic" style={{ color: C.charcoal }}>No medications added yet. Add one below.</p>
+                          )}
+                          {(lifeData?.medications ?? []).map((med) => {
+                            const log = (lifeData?.medLogs ?? []).find((l) => l.medication_name === med.name);
+                            const taken = log?.taken ?? false;
+                            return (
+                              <div key={med.id} className="p-4 rounded-2xl border flex items-center gap-4" style={{ background: taken ? C.forest + "11" : C.ivory, borderColor: taken ? C.forest + "44" : "#DDD7CD" }}>
+                                <motion.button
+                                  whileTap={{ scale: 0.85 }}
+                                  animate={taken ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+                                  onClick={() => {
+                                    fetch("/api/life", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "log_medication", medication_name: med.name, taken: !taken }) });
+                                    loadLifeData();
+                                    if (!taken) triggerCelebration("Meds taken! 💊 Taking care of yourself 💜");
+                                  }}
+                                  className="w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0 text-lg transition-all"
+                                  style={{ background: taken ? C.forest : "transparent", borderColor: C.forest }}
+                                >
+                                  {taken ? "✓" : ""}
+                                </motion.button>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium" style={{ color: C.warmBlack }}>{med.name}</p>
+                                  {med.dose && <p className="text-xs" style={{ color: C.charcoal }}>{med.dose}</p>}
+                                  {taken && log?.taken_at && <p className="text-xs" style={{ color: C.forest }}>Taken at {new Date(log.taken_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
+                                </div>
+                                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: taken ? C.forest + "22" : "#DDD7CD", color: taken ? C.forest : C.charcoal }}>{taken ? "Done ✓" : "Pending"}</span>
+                              </div>
+                            );
+                          })}
+
+                          {/* Symptom log */}
+                          {(lifeData?.medLogs ?? []).some((l) => l.taken) && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.charcoal }}>How are you feeling today?</p>
+                              {["Good","Anxious","Tired","Foggy","Headache","Nauseous","Mood dip","Great"].map((s) => {
+                                const currentLog = (lifeData?.medLogs ?? [])[0];
+                                const active = currentLog?.symptoms?.includes(s);
+                                return (
+                                  <button key={s} onClick={() => {
+                                    const current = currentLog?.symptoms ?? [];
+                                    const updated = active ? current.filter((x) => x !== s) : [...current, s];
+                                    fetch("/api/life", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "log_medication", medication_name: (lifeData?.medications[0]?.name ?? ""), taken: currentLog?.taken ?? false, symptoms: updated }) });
+                                    loadLifeData();
+                                  }} className="inline-block mr-1.5 mb-1.5 text-xs px-3 py-1 rounded-full border transition-colors" style={{ background: active ? C.rose + "33" : C.ivory, color: active ? C.rose : C.charcoal, borderColor: active ? C.rose : "#DDD7CD" }}>
+                                    {s}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Add medication — smart autocomplete */}
+                          <div className="pt-3 border-t space-y-3" style={{ borderColor: "#DDD7CD" }}>
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.charcoal }}>Add Medication</p>
+                              <motion.button {...btnTap} onClick={() => setAddingMedFull((v) => !v)} className="text-xs px-3 py-1 rounded-full" style={{ background: C.forest + "18", color: C.forest }}>
+                                {addingMedFull ? "Cancel" : "+ Add"}
+                              </motion.button>
+                            </div>
+                            <AnimatePresence>
+                              {addingMedFull && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={SPRING_SLOW}
+                                  className="space-y-2 overflow-hidden"
+                                >
+                                  {/* Search field */}
+                                  <div className="relative">
+                                    <input
+                                      value={medSearchQuery}
+                                      onChange={(e) => { setMedSearchQuery(e.target.value); setNewMedForm((f) => ({ ...f, name: e.target.value })); searchMedication(e.target.value); }}
+                                      placeholder="Type medication name (e.g. Adderall, Zoloft)..."
+                                      className="w-full text-sm px-3 py-2 rounded-xl border"
+                                      style={{ borderColor: "#DDD7CD", background: C.ivory }}
+                                    />
+                                    {medSearchLoading && <Loader2 className="absolute right-3 top-2.5 w-4 h-4 animate-spin" style={{ color: C.charcoal }} />}
+                                  </div>
+
+                                  {/* Auto-populated info */}
+                                  {medSearchResult && (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: 4 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      transition={SPRING}
+                                      className="p-3 rounded-2xl border space-y-2"
+                                      style={{ background: C.forest + "08", borderColor: C.forest + "33" }}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-semibold" style={{ color: C.forest }}>✓ Found: {medSearchResult.normalizedName}</span>
+                                        {medSearchResult.commonBrands.length > 0 && (
+                                          <span className="text-xs" style={{ color: C.charcoal }}>({medSearchResult.commonBrands.slice(0,2).join(", ")})</span>
+                                        )}
+                                      </div>
+                                      <p className="text-xs" style={{ color: C.charcoal }}>⏰ {medSearchResult.whenToTake}</p>
+                                      {medSearchResult.notes && <p className="text-xs italic" style={{ color: C.charcoal }}>{medSearchResult.notes}</p>}
+                                    </motion.div>
+                                  )}
+
+                                  {/* Dose selector */}
+                                  {medSearchResult?.commonDoses && medSearchResult.commonDoses.length > 0 && (
+                                    <div>
+                                      <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Common doses — tap to select:</p>
+                                      <div className="flex gap-1.5 flex-wrap">
+                                        {medSearchResult.commonDoses.map((d) => (
+                                          <motion.button key={d} {...btnTap}
+                                            onClick={() => setNewMedForm((f) => ({ ...f, dose: d }))}
+                                            className="text-xs px-2.5 py-1 rounded-full border"
+                                            style={{ background: newMedForm.dose === d ? C.forest : C.ivory, color: newMedForm.dose === d ? C.bone : C.charcoal, borderColor: newMedForm.dose === d ? C.forest : "#DDD7CD" }}
+                                          >{d}</motion.button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Manual dose if not from lookup */}
+                                  <div className="flex gap-2">
+                                    <input value={newMedForm.dose} onChange={(e) => setNewMedForm((f) => ({ ...f, dose: e.target.value }))} placeholder="Dose (e.g. 20mg)" className="flex-1 text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                                    <select value={newMedForm.frequency} onChange={(e) => setNewMedForm((f) => ({ ...f, frequency: e.target.value }))} className="text-xs px-2 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }}>
+                                      <option value="daily">Daily</option>
+                                      <option value="twice_daily">Twice daily</option>
+                                      <option value="as_needed">As needed</option>
+                                      <option value="weekly">Weekly</option>
+                                    </select>
+                                  </div>
+
+                                  {/* When to take */}
+                                  <input value={newMedForm.when_to_take} onChange={(e) => setNewMedForm((f) => ({ ...f, when_to_take: e.target.value }))} placeholder="When to take (e.g. Morning with food)" className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+
+                                  {/* Symptoms to track (from lookup, toggleable) */}
+                                  {medSearchResult?.symptomsToTrack && medSearchResult.symptomsToTrack.length > 0 && (
+                                    <div>
+                                      <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Symptoms to track (tap to select):</p>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {medSearchResult.symptomsToTrack.map((s) => {
+                                          const selected = newMedForm.symptoms_to_track.includes(s);
+                                          return (
+                                            <motion.button key={s} {...btnTap}
+                                              onClick={() => setNewMedForm((f) => ({ ...f, symptoms_to_track: selected ? f.symptoms_to_track.filter((x) => x !== s) : [...f.symptoms_to_track, s] }))}
+                                              className="text-xs px-2.5 py-1 rounded-full border"
+                                              style={{ background: selected ? C.rose + "33" : C.ivory, color: selected ? C.rose : C.charcoal, borderColor: selected ? C.rose : "#DDD7CD" }}
+                                            >{s}</motion.button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <motion.button
+                                    {...btnTap}
+                                    disabled={!newMedForm.name.trim()}
+                                    onClick={async () => {
+                                      if (!newMedForm.name.trim()) return;
+                                      await lifePost({ type: "add_medication", ...newMedForm });
+                                      setNewMedForm({ name: "", dose: "", frequency: "daily", when_to_take: "", symptoms_to_track: [], notes: "" });
+                                      setMedSearchQuery("");
+                                      setMedSearchResult(null);
+                                      setAddingMedFull(false);
+                                    }}
+                                    className="w-full py-2.5 rounded-2xl text-sm font-semibold"
+                                    style={{ background: newMedForm.name.trim() ? C.forest : "#DDD7CD", color: newMedForm.name.trim() ? C.bone : C.charcoal }}
+                                  >
+                                    Save Medication
+                                  </motion.button>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Sleep Tracker */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="font-serif text-xl">🌙 Sleep Last Night</CardTitle>
+                            <AnimatePresence>
+                              {sleepSaved && (
+                                <motion.span initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="text-xs" style={{ color: C.forest }}>Saved ✓</motion.span>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Hours */}
+                          <div className="flex gap-3 items-center flex-wrap">
+                            <p className="text-xs font-medium w-24 shrink-0" style={{ color: C.charcoal }}>Hours slept</p>
+                            <div className="flex gap-1.5 flex-wrap">
+                              {["4","5","6","7","8","9","10"].map((h) => (
+                                <motion.button key={h} {...btnTap}
+                                  onClick={() => setSleepDraft((s) => ({ ...s, hours: h }))}
+                                  className="w-9 h-9 rounded-full border text-sm font-semibold"
+                                  style={{ background: sleepDraft.hours === h ? C.forest : C.ivory, color: sleepDraft.hours === h ? C.bone : C.charcoal, borderColor: sleepDraft.hours === h ? C.forest : "#DDD7CD" }}
+                                >{h}</motion.button>
+                              ))}
+                            </div>
+                          </div>
+                          {/* Quality */}
+                          <div className="flex gap-3 items-center flex-wrap">
+                            <p className="text-xs font-medium w-24 shrink-0" style={{ color: C.charcoal }}>Quality</p>
+                            <div className="flex gap-2">
+                              {[
+                                { v: 1, label: "😴 Rough" },
+                                { v: 2, label: "😕 Meh" },
+                                { v: 3, label: "😐 OK" },
+                                { v: 4, label: "🙂 Good" },
+                                { v: 5, label: "✨ Great" },
+                              ].map(({ v, label }) => (
+                                <motion.button key={v} {...btnTap}
+                                  onClick={() => setSleepDraft((s) => ({ ...s, quality: v }))}
+                                  className="text-xs px-2.5 py-1.5 rounded-full border"
+                                  style={{ background: sleepDraft.quality === v ? C.gold : C.ivory, color: sleepDraft.quality === v ? C.warmBlack : C.charcoal, borderColor: sleepDraft.quality === v ? C.gold : "#DDD7CD" }}
+                                >{label}</motion.button>
+                              ))}
+                            </div>
+                          </div>
+                          {/* Times */}
+                          <div className="flex gap-3">
+                            <div className="flex-1">
+                              <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Bedtime</p>
+                              <input type="time" value={sleepDraft.bedtime} onChange={(e) => setSleepDraft((s) => ({ ...s, bedtime: e.target.value }))} className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs font-medium mb-1" style={{ color: C.charcoal }}>Wake time</p>
+                              <input type="time" value={sleepDraft.wake_time} onChange={(e) => setSleepDraft((s) => ({ ...s, wake_time: e.target.value }))} className="w-full text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            </div>
+                          </div>
+                          {/* Notes */}
+                          <textarea value={sleepDraft.notes} onChange={(e) => setSleepDraft((s) => ({ ...s, notes: e.target.value }))} placeholder="Dreams, sleep quality notes..." rows={2} className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                          <motion.button
+                            {...btnTap}
+                            onClick={async () => {
+                              await lifePost({ type: "log_sleep", hours: Number(sleepDraft.hours) || null, quality: sleepDraft.quality || null, bedtime: sleepDraft.bedtime || null, wake_time: sleepDraft.wake_time || null, notes: sleepDraft.notes || null });
+                              setSleepSaved(true);
+                              setTimeout(() => setSleepSaved(false), 2000);
+                            }}
+                            className="w-full py-2.5 rounded-2xl text-sm font-semibold"
+                            style={{ background: C.forest, color: C.bone }}
+                          >Log Sleep</motion.button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {/* SPIRITUAL view — Hoodoo reference guide */}
+                  {lifeTab === "spiritual" && (
+                    <motion.div key="spiritual" {...FADE_BLUR} className="space-y-4">
+                      {/* Header */}
+                      <div className="p-4 rounded-3xl border" style={{ background: "linear-gradient(135deg, #1C3A2A11, #B8A06A11)", borderColor: "#DDD7CD" }}>
+                        <p className="font-serif text-lg font-semibold" style={{ color: C.warmBlack }}>🌙 Your Spiritual Reference Guide</p>
+                        <p className="text-xs mt-1" style={{ color: C.charcoal }}>Hoodoo signs, symbols, and meanings — your growing personal reference. Tap any sign to expand.</p>
+                      </div>
+
+                      {/* Search + category filter */}
+                      <div className="flex gap-2 flex-wrap">
+                        <input value={spiritSearch} onChange={(e) => setSpiritSearch(e.target.value)} placeholder="Search signs..." className="text-sm px-3 py-2 rounded-xl border flex-1 min-w-40" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                        {["All", ...Array.from(new Set((lifeData?.spiritSigns ?? []).map((s) => s.category)))].map((cat) => (
+                          <button key={cat} onClick={() => setSpiritCategory(cat)} className="text-xs px-3 py-1.5 rounded-full border transition-all" style={{ background: spiritCategory === cat ? C.warmBlack : C.ivory, color: spiritCategory === cat ? C.bone : C.charcoal, borderColor: spiritCategory === cat ? C.warmBlack : "#DDD7CD" }}>
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Signs list */}
+                      {(() => {
+                        const signs = (lifeData?.spiritSigns ?? []).filter((s) =>
+                          (spiritCategory === "All" || s.category === spiritCategory) &&
+                          (!spiritSearch || s.name.toLowerCase().includes(spiritSearch.toLowerCase()) || s.meaning.toLowerCase().includes(spiritSearch.toLowerCase()))
+                        );
+                        const byCategory: Record<string, typeof signs> = {};
+                        signs.forEach((s) => { if (!byCategory[s.category]) byCategory[s.category] = []; byCategory[s.category].push(s); });
+
+                        return Object.entries(byCategory).map(([cat, catSigns]) => (
+                          <div key={cat} className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-widest px-1" style={{ color: C.charcoal }}>{cat}</p>
+                            {catSigns.map((sign) => (
+                              <motion.div key={sign.id} layout className="rounded-2xl overflow-hidden border" style={{ background: C.ivory, borderColor: "#DDD7CD" }}>
+                                <button
+                                  className="w-full flex items-center justify-between px-4 py-3 text-left"
+                                  onClick={() => setSpiritExpanded(spiritExpanded === sign.id ? null : sign.id)}
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium" style={{ color: C.warmBlack }}>{sign.name}</p>
+                                    <p className="text-xs mt-0.5 line-clamp-1" style={{ color: C.charcoal }}>{sign.meaning}</p>
+                                  </div>
+                                  <span className="text-xs ml-3 shrink-0" style={{ color: C.charcoal }}>{spiritExpanded === sign.id ? "▲" : "▼"}</span>
+                                </button>
+                                <AnimatePresence>
+                                  {spiritExpanded === sign.id && (
+                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                                      <div className="px-4 pb-4 space-y-3 border-t" style={{ borderColor: "#DDD7CD" }}>
+                                        <div className="pt-3">
+                                          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: C.charcoal }}>Meaning</p>
+                                          <p className="text-sm" style={{ color: C.warmBlack }}>{sign.meaning}</p>
+                                        </div>
+                                        {sign.hoodoo_context && (
+                                          <div className="p-3 rounded-xl" style={{ background: "#1C3A2A0D" }}>
+                                            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: C.forest }}>Hoodoo Context</p>
+                                            <p className="text-sm" style={{ color: C.warmBlack }}>{sign.hoodoo_context}</p>
+                                          </div>
+                                        )}
+                                        {sign.personal_notes && (
+                                          <div className="p-3 rounded-xl" style={{ background: C.gold + "15" }}>
+                                            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: C.gold }}>Your Notes</p>
+                                            <p className="text-sm" style={{ color: C.warmBlack }}>{sign.personal_notes}</p>
+                                          </div>
+                                        )}
+                                        {/* Edit personal notes */}
+                                        <textarea
+                                          defaultValue={sign.personal_notes ?? ""}
+                                          placeholder="Add your personal notes, experiences, what this sign has meant for you..."
+                                          rows={2}
+                                          className="w-full text-xs px-3 py-2 rounded-xl border resize-none"
+                                          style={{ borderColor: "#DDD7CD", background: C.bone }}
+                                          onBlur={(e) => { if (e.target.value !== (sign.personal_notes ?? "")) { fetch("/api/life", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "update_spirit_sign", id: sign.id, personal_notes: e.target.value }) }); loadLifeData(); } }}
+                                        />
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </motion.div>
+                            ))}
+                          </div>
+                        ));
+                      })()}
+
+                      {/* Add your own sign */}
+                      <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
+                        <CardHeader><CardTitle className="font-serif text-lg">✍🏾 Add Your Own Sign</CardTitle></CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <input value={newSign.name} onChange={(e) => setNewSign((s) => ({ ...s, name: e.target.value }))} placeholder="Sign name *" className="text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                            <select value={newSign.category} onChange={(e) => setNewSign((s) => ({ ...s, category: e.target.value }))} className="text-sm px-3 py-2 rounded-xl border" style={{ borderColor: "#DDD7CD", background: C.ivory }}>
+                              {["Birds & Animals","Numbers","Moon Phases","Dreams","Colors","Omens","Plants & Herbs","Body Sensations","Other"].map((c) => <option key={c}>{c}</option>)}
+                            </select>
+                          </div>
+                          <textarea value={newSign.meaning} onChange={(e) => setNewSign((s) => ({ ...s, meaning: e.target.value }))} placeholder="What does this sign mean to you? *" rows={2} className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                          <textarea value={newSign.personal_notes} onChange={(e) => setNewSign((s) => ({ ...s, personal_notes: e.target.value }))} placeholder="Personal notes (optional)..." rows={2} className="w-full text-sm px-3 py-2 rounded-xl border resize-none" style={{ borderColor: "#DDD7CD", background: C.ivory }} />
+                          <button onClick={() => {
+                            if (!newSign.name || !newSign.meaning) return;
+                            setAddingSign(true);
+                            lifePost({ type: "add_spirit_sign", ...newSign, is_reference: false }).then(() => {
+                              setNewSign({ category: "Omens", name: "", meaning: "", hoodoo_context: "", personal_notes: "" });
+                              setAddingSign(false);
+                            });
+                          }} disabled={!newSign.name || !newSign.meaning || addingSign} className="w-full text-sm py-2.5 rounded-full disabled:opacity-40" style={{ background: C.warmBlack, color: C.bone }}>
+                            {addingSign ? "Saving..." : "✍🏾 Save to My Guide"}
+                          </button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
 
             {/* ── Overview ── */}
             <TabsContent value="overview" className="space-y-4">
@@ -1295,8 +3606,21 @@ export default function WVWCommandCenter() {
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <Card className="xl:col-span-2 rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                   <CardHeader>
-                    <CardTitle className="font-serif text-xl">Top Niche Signals</CardTitle>
-                    <CardDescription style={{ color: C.charcoal }}>Live Reddit signals from r/humanresources, r/blackmentalhealth, r/ADHD, r/neurodivergent, r/burnout, r/nonprofit — updated hourly.</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="font-serif text-xl">Top Niche Signals</CardTitle>
+                        <CardDescription style={{ color: C.charcoal }}>Live Reddit signals from your content niches — updated hourly.</CardDescription>
+                      </div>
+                      <button
+                        onClick={fetchReddit}
+                        disabled={redditLoading}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-opacity disabled:opacity-40"
+                        style={{ borderColor: "#DDD7CD", color: C.charcoal, background: C.ivory }}
+                      >
+                        {redditLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />}
+                        Refresh
+                      </button>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {themeOfMonth && (
@@ -1413,56 +3737,7 @@ export default function WVWCommandCenter() {
 
             {/* ── Newsletters ── */}
             <TabsContent value="newsletters" className="space-y-4">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
-                  <CardHeader>
-                    <CardTitle className="font-serif text-xl">Newsletter Preference</CardTitle>
-                    <CardDescription style={{ color: C.charcoal }}>Which newsletter your audience favors most.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-5">
-                    {newsletters.map((item) => (
-                      <div key={item.name} className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium">{item.name}</span>
-                          <span style={{ color: C.gold }} className="font-medium">{item.favoriteScore}</span>
-                        </div>
-                        <Progress
-                          value={item.favoriteScore}
-                          className="h-1.5"
-                          style={{ background: "#DDD7CD" }}
-                        />
-                        <div className="text-xs flex gap-4" style={{ color: C.charcoal }}>
-                          <span>Opens {item.opens}%</span>
-                          <span>Clicks {item.clicks}%</span>
-                          <span>Saves {item.saves}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
-                  <CardHeader>
-                    <CardTitle className="font-serif text-xl">Newsletter Intelligence</CardTitle>
-                    <CardDescription style={{ color: C.charcoal }}>What this module evaluates in real time.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm" style={{ color: C.charcoal }}>
-                    {[
-                      "Views, sends, opens, click-throughs, subscriber growth",
-                      "Favorite issue by topic, title style, and hook",
-                      "Lead generation tied to newsletter topic",
-                      "Cross-over: which newsletters drive social shares",
-                      "Monthly ranking of recurring series",
-                      "Content recycling suggestions from top issues",
-                    ].map((item) => (
-                      <div key={item} className="flex gap-2 items-start">
-                        <FileText className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: C.forest }} />
-                        <span>{item}</span>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
+              <NewsletterAnalytics />
             </TabsContent>
 
             {/* ── Content Map ── */}
@@ -1991,50 +4266,71 @@ export default function WVWCommandCenter() {
                 <Card className="rounded-3xl shadow-none xl:col-span-2" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                   <CardHeader>
                     <CardTitle className="font-serif text-xl">Recent Posts</CardTitle>
-                    <CardDescription style={{ color: C.charcoal }}>Last 15 items from the post log.</CardDescription>
+                    <CardDescription style={{ color: C.charcoal }}>What posted, what failed, and why.</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
                     {(postingStatus?.recentPosts ?? []).length === 0 ? (
                       <p className="text-sm py-4" style={{ color: C.charcoal }}>
-                        No posts logged yet. Click &ldquo;Post Today's Content Now&rdquo; or wait for the daily cron.
+                        No posts logged yet. Click &ldquo;Post Today&apos;s Content Now&rdquo; or wait for the daily cron.
                       </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {(postingStatus?.recentPosts ?? []).map((entry) => (
-                          <div
-                            key={entry.id}
-                            className="p-3 rounded-2xl flex items-start gap-3"
-                            style={{ background: C.ivory }}
-                          >
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full shrink-0 mt-0.5 font-medium"
-                              style={{
-                                background:
-                                  entry.status === "posted" ? C.forest + "22"
-                                  : entry.status === "queued" ? C.gold + "33"
-                                  : "#DDD7CD",
-                                color:
-                                  entry.status === "posted" ? C.forest
-                                  : entry.status === "queued" ? C.charcoal
-                                  : C.rose,
-                              }}
-                            >
-                              {entry.status}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-xs font-medium capitalize">{entry.platform.replace(/_/g, " ")}</span>
-                                <span className="text-xs" style={{ color: C.charcoal }}>· {entry.theme}</span>
-                              </div>
-                              <p className="text-xs truncate" style={{ color: C.charcoal }}>{entry.excerpt}</p>
+                    ) : (() => {
+                      const allEntries = postingStatus?.recentPosts ?? [];
+                      const failures = allEntries.filter((e) => e.status === "error" || e.status === "skipped");
+                      const posted = allEntries.filter((e) => e.status === "posted" || e.status === "queued");
+                      return (
+                        <>
+                          {failures.length > 0 && (
+                            <div className="rounded-2xl border p-3 space-y-2" style={{ borderColor: C.rose + "66", background: C.rose + "11" }}>
+                              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.rose }}>Not Posting ({failures.length})</p>
+                              {failures.map((entry) => (
+                                <div key={entry.id} className="flex items-start gap-3 p-2 rounded-xl" style={{ background: C.ivory }}>
+                                  <span className="text-xs px-2 py-0.5 rounded-full shrink-0 mt-0.5 font-medium" style={{ background: C.rose + "22", color: C.rose }}>
+                                    {entry.status}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                      <span className="text-xs font-medium capitalize">{entry.platform.replace(/_/g, " ")}</span>
+                                      <span className="text-xs" style={{ color: C.charcoal }}>· {entry.theme}</span>
+                                    </div>
+                                    {entry.error_detail && (
+                                      <p className="text-xs font-medium" style={{ color: C.rose }}>{entry.error_detail}</p>
+                                    )}
+                                    {entry.excerpt && (
+                                      <p className="text-xs truncate mt-0.5" style={{ color: C.charcoal }}>{entry.excerpt}</p>
+                                    )}
+                                  </div>
+                                  <span className="text-xs shrink-0" style={{ color: C.charcoal }}>
+                                    {new Date(entry.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
-                            <span className="text-xs shrink-0" style={{ color: C.charcoal }}>
-                              {new Date(entry.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                          )}
+                          {posted.length > 0 && (
+                            <div className="space-y-2">
+                              {failures.length > 0 && <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.forest }}>Successfully Posted ({posted.length})</p>}
+                              {posted.map((entry) => (
+                                <div key={entry.id} className="p-3 rounded-2xl flex items-start gap-3" style={{ background: C.ivory }}>
+                                  <span className="text-xs px-2 py-0.5 rounded-full shrink-0 mt-0.5 font-medium" style={{ background: C.forest + "22", color: C.forest }}>
+                                    {entry.status}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                      <span className="text-xs font-medium capitalize">{entry.platform.replace(/_/g, " ")}</span>
+                                      <span className="text-xs" style={{ color: C.charcoal }}>· {entry.theme}</span>
+                                    </div>
+                                    <p className="text-xs truncate" style={{ color: C.charcoal }}>{entry.excerpt}</p>
+                                  </div>
+                                  <span className="text-xs shrink-0" style={{ color: C.charcoal }}>
+                                    {new Date(entry.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               </div>
@@ -2506,7 +4802,7 @@ export default function WVWCommandCenter() {
                           const today = new Date();
                           setCalYear(today.getFullYear());
                           setCalMonth(today.getMonth() + 1);
-                          setCalSelected(null);
+                          setCalSelected(today.toISOString().slice(0, 10));
                         }}
                         className="text-xs px-2.5 py-1 rounded-xl transition-colors"
                         style={{ background: C.ivory, color: C.charcoal, border: `1px solid #DDD7CD` }}
@@ -3321,6 +5617,13 @@ export default function WVWCommandCenter() {
               </Card>
             </TabsContent>
 
+            {/* ── Website Analytics ── */}
+            <TabsContent value="website" className="space-y-4">
+              <WebsiteAnalytics />
+              <hr style={{ borderColor: '#DDD7CD', opacity: 0.6 }} />
+              <AssessmentResults />
+            </TabsContent>
+
           </Tabs>
 
           {/* ── Layer 2 feature cards ── */}
@@ -3362,27 +5665,36 @@ export default function WVWCommandCenter() {
                 action: "View Alerts",
                 live: alerts.length > 0,
               },
-            ].map((card) => (
-              <Card
+            ].map((card, i) => (
+              <motion.div
                 key={card.title}
-                className="rounded-3xl shadow-none cursor-pointer transition-shadow hover:shadow-md"
-                style={{ background: C.bone, borderColor: card.live ? C.forest + "44" : "#DDD7CD" }}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={STAGGER(i)}
+                whileHover={{ y: -4, boxShadow: "0 16px 40px rgba(28,58,42,0.12)" }}
+                whileTap={{ scale: 0.97 }}
+                style={{ cursor: "pointer" }}
                 onClick={() => setActiveTab(card.tab)}
               >
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="p-3 rounded-2xl" style={{ background: card.live ? C.forest + "11" : C.ivory }}>
-                      <card.icon className="w-4 h-4" style={{ color: C.forest }} />
+                <Card
+                  className="rounded-3xl shadow-none h-full"
+                  style={{ background: C.bone, borderColor: card.live ? C.forest + "44" : "#DDD7CD" }}
+                >
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="p-3 rounded-2xl" style={{ background: card.live ? C.forest + "11" : C.ivory }}>
+                        <card.icon className="w-4 h-4" style={{ color: C.forest }} />
+                      </div>
+                      {card.live && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: C.forest + "22", color: C.forest }}>Live</span>
+                      )}
                     </div>
-                    {card.live && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: C.forest + "22", color: C.forest }}>Live</span>
-                    )}
-                  </div>
-                  <h3 className="font-serif text-base font-semibold">{card.title}</h3>
-                  <p className="text-sm" style={{ color: C.charcoal }}>{card.text}</p>
-                  <p className="text-xs font-medium" style={{ color: C.forest }}>→ {card.action}</p>
-                </CardContent>
-              </Card>
+                    <h3 className="font-serif text-base font-semibold">{card.title}</h3>
+                    <p className="text-sm" style={{ color: C.charcoal }}>{card.text}</p>
+                    <p className="text-xs font-medium" style={{ color: C.forest }}>→ {card.action}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
           </div>
 
@@ -3421,6 +5733,9 @@ export default function WVWCommandCenter() {
             </CardContent>
           </Card>
 
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </>

@@ -5,13 +5,15 @@
  */
 
 import * as readline from 'readline';
+import * as http from 'http';
 import { exec } from 'child_process';
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q) => new Promise(resolve => rl.question(q, resolve));
 
-const REDIRECT_URI = 'http://localhost:9871/callback';
-const SCOPE = 'openid profile w_member_social w_organization_social';
+const PORT = 9871;
+const REDIRECT_URI = `http://localhost:${PORT}/callback`;
+const SCOPE = 'openid profile w_member_social';
 
 async function fetchJson(url, opts = {}) {
   const res = await fetch(url, opts);
@@ -20,27 +22,75 @@ async function fetchJson(url, opts = {}) {
   catch { return { ok: res.ok, status: res.status, data: text }; }
 }
 
+// Starts a one-shot local server, returns the auth code from LinkedIn's redirect
+function waitForCallback() {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url, `http://localhost:${PORT}`);
+      const code = url.searchParams.get('code');
+      const error = url.searchParams.get('error');
+
+      if (error) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`<h2 style="font-family:sans-serif;color:#c00">LinkedIn returned an error: ${error}</h2><p>${url.searchParams.get('error_description') ?? ''}</p>`);
+        server.close();
+        reject(new Error(`LinkedIn OAuth error: ${error} — ${url.searchParams.get('error_description') ?? ''}`));
+        return;
+      }
+
+      if (code) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`<h2 style="font-family:sans-serif;color:#1C3A2A">✓ Authorization successful!</h2><p>You can close this tab and return to the terminal.</p>`);
+        server.close();
+        resolve(code);
+        return;
+      }
+
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('No code or error in callback');
+    });
+
+    server.listen(PORT, () => {
+      console.log(`  ✓ Listening on http://localhost:${PORT}/callback\n`);
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        reject(new Error(`Port ${PORT} is already in use. Close whatever is running on it and try again.`));
+      } else {
+        reject(err);
+      }
+    });
+
+    // Timeout after 3 minutes
+    setTimeout(() => {
+      server.close();
+      reject(new Error('Timed out waiting for LinkedIn callback (3 minutes). Run the script again.'));
+    }, 3 * 60 * 1000);
+  });
+}
+
 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log('  WVW LinkedIn Token Setup');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-// ── Step 1: LinkedIn App ──────────────────────────────────────────────────────
-console.log('Step 1 — Open your LinkedIn Developer app:');
-console.log('  https://www.linkedin.com/developers/apps\n');
-console.log('  If you have no app yet: Create app → give it any name → attach your WVW Company Page\n');
-console.log('  In your app:');
-console.log('  → Products tab → Request access to "Share on LinkedIn"');
-console.log('  → Auth tab → Add this redirect URL exactly:');
+console.log('  In your LinkedIn app (linkedin.com/developers/apps):');
+console.log('  → Auth tab → Authorized redirect URLs must include:');
 console.log(`      ${REDIRECT_URI}`);
-console.log('  → Save\n');
+console.log('  → Products tab → "Share on LinkedIn" must be listed under Added products\n');
 
-await ask('Press Enter when the redirect URL is saved in your LinkedIn app...');
+await ask('Press Enter when those are confirmed...');
 
-console.log('\n  Now stay on the Auth tab and grab your credentials:\n');
+console.log('\n  Grab your credentials from the Auth tab:\n');
 const clientId     = (await ask('  Paste Client ID:     ')).trim();
 const clientSecret = (await ask('  Paste Client Secret: ')).trim();
 
-// ── Step 2: Auth URL ──────────────────────────────────────────────────────────
+// ── Start local server before opening the browser ────────────────────────────
+console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+console.log('Starting local callback server...');
+
+const callbackPromise = waitForCallback();
+
 const authUrl = 'https://www.linkedin.com/oauth/v2/authorization?' + new URLSearchParams({
   response_type: 'code',
   client_id: clientId,
@@ -49,23 +99,25 @@ const authUrl = 'https://www.linkedin.com/oauth/v2/authorization?' + new URLSear
   state: 'wvw',
 });
 
-console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-console.log('Step 2 — Authorize LinkedIn\n');
-console.log('  Opening this URL in your browser:');
-console.log(`  ${authUrl}\n`);
-exec(`open "${authUrl}"`);
+console.log('Opening LinkedIn authorization in your browser...');
+console.log('If it does not open automatically, copy this URL:\n');
+console.log(authUrl + '\n');
+exec(`open '${authUrl}'`);
 
-console.log('  → Click "Allow" on the LinkedIn page');
-console.log('  → Your browser will then show an error like "localhost refused to connect"');
-console.log('  → That is expected. Look at the address bar — the URL will look like:');
-console.log('      http://localhost:9871/callback?code=AQXXXX...&state=wvw\n');
-console.log('  → Copy ONLY the "code" value (everything between "code=" and "&state")');
-console.log('  → It starts with "AQ" and is about 200 characters long\n');
+console.log('Waiting for you to click Allow on LinkedIn...');
 
-const code = (await ask('  Paste the code here: ')).trim();
+let code;
+try {
+  code = await callbackPromise;
+  console.log('✓ Got authorization code');
+} catch (err) {
+  console.error('\n' + err.message);
+  rl.close();
+  process.exit(1);
+}
 
-// ── Step 3: Exchange code ─────────────────────────────────────────────────────
-console.log('\nExchanging code for access token...');
+// ── Exchange code for token ───────────────────────────────────────────────────
+console.log('Exchanging code for access token...');
 const tokenRes = await fetchJson('https://www.linkedin.com/oauth/v2/accessToken', {
   method: 'POST',
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -80,9 +132,6 @@ const tokenRes = await fetchJson('https://www.linkedin.com/oauth/v2/accessToken'
 
 if (!tokenRes.ok) {
   console.error('\nToken exchange failed:', JSON.stringify(tokenRes.data, null, 2));
-  console.log('\nCommon causes:');
-  console.log('  - The code expires after ~10 minutes. Run the script again if it took too long.');
-  console.log('  - The redirect URI must match exactly, including http:// and no trailing slash.');
   rl.close();
   process.exit(1);
 }
@@ -92,7 +141,7 @@ const expiresIn   = tokenRes.data.expires_in ?? 5184000;
 const expiresDate = new Date(Date.now() + expiresIn * 1000).toLocaleDateString();
 console.log(`✓ Got access token (expires ${expiresDate})`);
 
-// ── Step 4: Fetch person URN ──────────────────────────────────────────────────
+// ── Fetch person URN ──────────────────────────────────────────────────────────
 console.log('Fetching your LinkedIn profile...');
 const profileRes = await fetchJson('https://api.linkedin.com/v2/userinfo', {
   headers: { Authorization: `Bearer ${accessToken}` },
@@ -109,7 +158,7 @@ if (profileRes.ok && profileRes.data.sub) {
   personUrn = (await ask('  Paste your LinkedIn Person URN (or leave blank): ')).trim();
 }
 
-// ── Step 5: Org URN ───────────────────────────────────────────────────────────
+// ── Fetch org URN ─────────────────────────────────────────────────────────────
 console.log('Looking up your WVW company page org ID...');
 const orgRes = await fetchJson(
   'https://api.linkedin.com/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED',

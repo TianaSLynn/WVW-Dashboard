@@ -9,6 +9,7 @@ import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { postToFacebook, postToInstagram, postToInstagramCarousel, postToThreads } from "@/lib/facebook";
 import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
+import { sendCronSummary } from "@/lib/notify";
 
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
 
   const log = (platform: string, text: string, r: Result) => {
     results[platform] = r;
-    void appendPostLog({ platform, theme, text, status: r.status as "posted" | "queued" | "error" | "skipped" });
+    void appendPostLog({ platform, theme, text, status: r.status as "posted" | "queued" | "error" | "skipped", error_detail: r.error });
   };
 
   // ── LinkedIn Personal ──
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
     if (!urn) {
       log("linkedin_wvw", posts.linkedin_wvw, { status: "skipped", error: "LINKEDIN_ORG_URN not set" });
     } else {
-      log("linkedin_wvw", posts.linkedin_wvw, await run("linkedin_wvw", () => postToLinkedIn(posts.linkedin_wvw!, urn)));
+      log("linkedin_wvw", posts.linkedin_wvw, await run("linkedin_wvw", () => postToLinkedIn(posts.linkedin_wvw!, urn, true)));
     }
   }
 
@@ -153,5 +154,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  void sendCronSummary("Daily Posts", theme, results);
   return Response.json({ theme, platforms, results, timestamp: new Date().toISOString() });
 }

@@ -4,6 +4,7 @@ import { postToLinkedIn } from "@/lib/linkedin";
 import { postToFacebook, postToThreads } from "@/lib/facebook";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { appendPostLog } from "@/lib/logger";
+import { sendCronSummary } from "@/lib/notify";
 
 export const maxDuration = 60;
 
@@ -85,9 +86,11 @@ export async function GET(req: NextRequest) {
       theme,
       text: (posts[platform as keyof typeof posts] ?? "") as string,
       status: r.status as "posted" | "queued" | "error" | "skipped",
+      error_detail: r.error,
     });
   });
 
+  void sendCronSummary("WVW Academy", theme, results);
   return Response.json({
     theme,
     platforms: Object.keys(results),

@@ -7,6 +7,7 @@ export interface PostLogEntry {
   theme: string;
   excerpt: string;
   status: "posted" | "queued" | "error" | "skipped";
+  error_detail?: string;
 }
 
 export async function appendPostLog(entry: {
@@ -14,14 +15,16 @@ export async function appendPostLog(entry: {
   theme: string;
   text: string;
   status: PostLogEntry["status"];
+  error_detail?: string;
 }): Promise<void> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   await supabase.from("post_log").insert({
     id,
     platform: entry.platform,
     theme: entry.theme,
-    excerpt: entry.text.slice(0, 120),
+    excerpt: entry.text.slice(0, 400),
     status: entry.status,
+    error_detail: entry.error_detail ?? null,
   });
 }
 
@@ -39,5 +42,6 @@ export async function readPostLog(): Promise<PostLogEntry[]> {
     theme: row.theme as string,
     excerpt: (row.excerpt ?? "") as string,
     status: row.status as PostLogEntry["status"],
+    error_detail: (row.error_detail ?? undefined) as string | undefined,
   }));
 }

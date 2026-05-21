@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { supabase } from "./supabase";
 import type { Platform } from "./schedule";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -44,6 +45,8 @@ const PLATFORM_INSTRUCTIONS_ACADEMY: Record<string, string> = {
     "Threads — Academy angle: a practitioner-level observation. Direct. 1-3 sentences. What the trainings don't tell you. What the work actually requires. Under 300 characters. No hashtags.",
   facebook:
     "Facebook (WVW page) — Academy angle: 80-120 words. Community-facing. Speaks to practitioners and HR professionals in the WVW community. Warm but precise. May end with a soft reflection question.",
+  bluesky_personal:
+    "Bluesky personal (Tiána Lynn's personal account) — Academy angle: 1-3 sentences, written in first person as Tiána. Reflects on why she built the Academy — what she kept seeing practitioners get wrong, or what WVW's methodology offers that generic trainings don't. Conversational, not corporate. Under 280 characters. No hashtags.",
 };
 
 const PLATFORM_INSTRUCTIONS: Record<Platform, string> = {
@@ -64,6 +67,36 @@ const PLATFORM_INSTRUCTIONS: Record<Platform, string> = {
   bluesky_personal:
     "Bluesky personal (Tiána Lynn's personal account) — 1-3 sentences, written in first person as Tiána. Touches WVW themes lightly: Unicorn Wisdoms, Black experiences in neurodiversity, ADHD, rest, identity at work. Conversational, not corporate. Feels like a genuine thought, not a brand post. Under 280 characters. No hashtags.",
 };
+
+async function fetchRecentExcerpts(
+  platforms: string[],
+  limit = 40
+): Promise<Record<string, string[]>> {
+  const { data } = await supabase
+    .from("post_log")
+    .select("platform, excerpt, theme")
+    .in("platform", platforms)
+    .eq("status", "posted")
+    .order("created_at", { ascending: false })
+    .limit(limit * platforms.length);
+
+  const result: Record<string, string[]> = {};
+  for (const row of data ?? []) {
+    const p = row.platform as string;
+    if (!result[p]) result[p] = [];
+    if (result[p].length < limit) result[p].push(row.excerpt as string);
+  }
+  return result;
+}
+
+function buildNoRepeatBlock(excerpts: Record<string, string[]>): string {
+  const entries = Object.entries(excerpts).filter(([, list]) => list.length > 0);
+  if (entries.length === 0) return "";
+  const lines = entries
+    .map(([p, list]) => `${p}:\n${list.map((e) => `  - "${e}"`).join("\n")}`)
+    .join("\n\n");
+  return `\nCRITICAL — NO REPEATS: The following are opening lines from posts already published on each platform. You MUST NOT repeat, rephrase, echo, or use a similar angle, framing, hook, or structural construction to any of them. Each post must open and develop in a completely different direction:\n\n${lines}\n`;
+}
 
 export type GeneratedPosts = Partial<Record<Platform, string>>;
 
@@ -86,8 +119,11 @@ export async function generateDailyPosts(
     ? `Theme: "WVW Academy" — write from the practitioner/training angle. Target: consultants, HR professionals, coaches who do or want to do this work. NOT the organizational buyer — the individual practitioner.`
     : `Theme: "${theme}"`;
 
-  const prompt = `Generate today's social posts for WVW. ${themeContext}
+  const recentExcerpts = await fetchRecentExcerpts(platforms);
+  const noRepeatBlock = buildNoRepeatBlock(recentExcerpts);
 
+  const prompt = `Generate today's social posts for WVW. ${themeContext}
+${noRepeatBlock}
 Write one post per platform below. Return ONLY valid JSON — no markdown, no preamble, no explanation.
 
 Platforms:
@@ -140,6 +176,25 @@ export function getTodayBlackExcellenceCategory(): BlackExcellenceCategory {
 export async function generateBlackExcellence(
   category: BlackExcellenceCategory
 ): Promise<BlackExcellencePosts> {
+  const { data: recentSubjects } = await supabase
+    .from("post_log")
+    .select("theme")
+    .like("theme", "Black Excellence%")
+    .eq("status", "posted")
+    .order("created_at", { ascending: false })
+    .limit(60);
+
+  const subjectSet = new Set<string>();
+  for (const row of recentSubjects ?? []) {
+    const parts = (row.theme as string).split(" · ");
+    if (parts[2]) subjectSet.add(parts[2]);
+  }
+  const usedSubjects = [...subjectSet];
+  const noRepeatSubjects =
+    usedSubjects.length > 0
+      ? `\nCRITICAL — NEVER REPEAT THESE SUBJECTS: The following have already been featured. Do NOT spotlight any of them again. Choose someone or something entirely different:\n${usedSubjects.map((s) => `- ${s}`).join("\n")}\n`
+      : "";
+
   const categoryGuides: Record<BlackExcellenceCategory, string> = {
     "Black Psychologist":
       "Spotlight a real, named Black psychologist (e.g. Kenneth Clark, Beverly Daniel Tatum, Thema Bryant, Na'im Akbar, Joy DeGruy, A. Wade Boykin, Umar Johnson, Riana Elyse Anderson). Mention their contribution to the field.",
@@ -154,7 +209,7 @@ export async function generateBlackExcellence(
   };
 
   const prompt = `You are creating content for WVW's "Black Excellence" daily post series. Today's category: "${category}".
-
+${noRepeatSubjects}
 ${categoryGuides[category]}
 
 WVW context: Wholistic Vibes Wellness is a Black-led B2B organizational consulting practice focused on Black mental health in the workplace, psychological safety, neuroinclusion, and burnout. Founded by Tiána Lynn. Brand voice: calm, grounded, precise, luxury positioning. Core line: "Soft in appearance. Uncompromising in practice."
@@ -194,6 +249,20 @@ Return format:
 }
 
 export async function generateWisdoms(count = 5): Promise<string[]> {
+  const { data: recentWisdoms } = await supabase
+    .from("post_log")
+    .select("excerpt")
+    .eq("theme", "Unicorn Wisdom")
+    .eq("status", "posted")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  const usedWisdoms = [...new Set((recentWisdoms ?? []).map((r) => r.excerpt as string))];
+  const noRepeatWisdoms =
+    usedWisdoms.length > 0
+      ? `\nCRITICAL — NEVER REPEAT: The following Unicorn Wisdoms have already been published. Do NOT repeat, rephrase, echo, or re-use any theme, construction, or structural framing from them:\n${usedWisdoms.map((w) => `- "${w}"`).join("\n")}\n\n`
+      : "";
+
   const msg = await client.messages.create({
     model: "claude-opus-4-6",
     max_tokens: 600,
@@ -201,7 +270,7 @@ export async function generateWisdoms(count = 5): Promise<string[]> {
     messages: [
       {
         role: "user",
-        content: `Write ${count} original Unicorn Wisdoms for WVW. They should be calm, structurally observant, specific — never hollow affirmations. Two-part constructions work well ("X is Y. Z is the requirement."). Return ONLY a JSON array, no markdown:\n["wisdom 1", "wisdom 2", ...]`,
+        content: `${noRepeatWisdoms}Write ${count} original Unicorn Wisdoms for WVW. They should be calm, structurally observant, specific — never hollow affirmations. Two-part constructions work well ("X is Y. Z is the requirement."). Return ONLY a JSON array, no markdown:\n["wisdom 1", "wisdom 2", ...]`,
       },
     ],
   });

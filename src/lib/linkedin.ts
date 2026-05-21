@@ -1,5 +1,7 @@
-export async function postToLinkedIn(text: string, authorUrn: string): Promise<string> {
-  const token = process.env.LINKEDIN_ACCESS_TOKEN;
+export async function postToLinkedIn(text: string, authorUrn: string, useOrgToken = false): Promise<string> {
+  const token = useOrgToken
+    ? (process.env.LINKEDIN_ORG_ACCESS_TOKEN ?? process.env.LINKEDIN_ACCESS_TOKEN)
+    : process.env.LINKEDIN_ACCESS_TOKEN;
   if (!token) throw new Error("LINKEDIN_ACCESS_TOKEN not configured");
 
   const res = await fetch("https://api.linkedin.com/v2/ugcPosts", {

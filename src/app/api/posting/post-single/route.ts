@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { postToLinkedIn } from "@/lib/linkedin";
 import { postToFacebook, postToThreads } from "@/lib/facebook";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
+import { postToTwitter } from "@/lib/twitter";
+import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
 
 export const maxDuration = 60;
@@ -28,8 +30,8 @@ export async function POST(req: NextRequest) {
       }
       case "linkedin_wvw": {
         const urn = process.env.LINKEDIN_ORG_URN;
-        if (!process.env.LINKEDIN_ACCESS_TOKEN || !urn) throw new Error("LinkedIn WVW not configured");
-        await postToLinkedIn(text, urn);
+        if (!urn) throw new Error("LinkedIn WVW not configured");
+        await postToLinkedIn(text, urn, true);
         break;
       }
       case "facebook":
@@ -48,6 +50,16 @@ export async function POST(req: NextRequest) {
         if (!process.env.BLUESKY_PERSONAL_IDENTIFIER || !process.env.BLUESKY_PERSONAL_APP_PASSWORD) throw new Error("Bluesky Personal not configured");
         await postToBlueskyPersonal(text);
         break;
+      case "twitter":
+        if (!process.env.TWITTER_API_KEY || !process.env.TWITTER_ACCESS_TOKEN) throw new Error("Twitter not configured — add TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET to Vercel");
+        await postToTwitter(text);
+        break;
+      case "tiktok": {
+        const profileId = process.env.BUFFER_PROFILE_TIKTOK;
+        if (!process.env.BUFFER_ACCESS_TOKEN || !profileId) throw new Error("TikTok not configured — add BUFFER_ACCESS_TOKEN and BUFFER_PROFILE_TIKTOK to Vercel");
+        await queueInBuffer([profileId], text);
+        break;
+      }
       default:
         throw new Error(`Unknown platform: ${platform}`);
     }
@@ -61,6 +73,7 @@ export async function POST(req: NextRequest) {
     theme: theme ?? "Manual Preview Post",
     text,
     status: status as "posted" | "error",
+    error_detail: error,
   });
 
   return Response.json({ platform, status, error });

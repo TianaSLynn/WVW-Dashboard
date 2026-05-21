@@ -1,4 +1,4 @@
-const FB_VERSION = "v19.0";
+const FB_VERSION = "v21.0";
 
 export async function postToFacebook(text: string): Promise<void> {
   const token = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;

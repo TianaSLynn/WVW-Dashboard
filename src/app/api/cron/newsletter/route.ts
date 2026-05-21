@@ -36,13 +36,17 @@ export async function GET(req: NextRequest) {
     body: JSON.stringify({ series, theme }),
   });
 
-  const data = await res.json();
+  // newsletter/create streams text/plain — buffer the full response
+  const text = await res.text();
+  const excerpt = text.slice(0, 200).replace(/\n/g, " ").trim();
 
   return Response.json({
     series,
     theme,
     day,
-    result: data,
+    generated: true,
+    excerpt,
+    length: text.length,
     timestamp: new Date().toISOString(),
   });
 }

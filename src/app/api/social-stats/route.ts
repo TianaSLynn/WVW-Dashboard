@@ -12,18 +12,44 @@ const DEFAULT_PLATFORMS = [
 ];
 
 export async function GET() {
-  const { data, error } = await supabase
-    .from("social_stats")
-    .select("*")
-    .order("platform");
+  const [{ data, error }, { data: postCounts }] = await Promise.all([
+    supabase.from("social_stats").select("*").order("platform"),
+    supabase.from("post_log").select("platform").eq("status", "posted"),
+  ]);
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  // Ensure all platforms present; fill missing ones with zeros
-  const existing = new Map((data ?? []).map((r: { platform: string }) => [r.platform, r]));
-  const merged = DEFAULT_PLATFORMS.map((p) =>
-    existing.get(p) ?? { platform: p, followers: 0, engagement: 0, ctr: 0, posts: 0, lead_score: 0, updated_at: null }
-  );
+  // Count real posts per platform from post_log
+  const realPostCounts: Record<string, number> = {};
+  for (const row of postCounts ?? []) {
+    const p = String(row.platform);
+    realPostCounts[p] = (realPostCounts[p] ?? 0) + 1;
+  }
+
+  // Map post_log platform keys to display names
+  const platformKeyToDisplay: Record<string, string> = {
+    linkedin_personal: "LinkedIn Personal",
+    linkedin_wvw:      "LinkedIn WVW",
+    instagram:         "Instagram",
+    tiktok:            "TikTok",
+    facebook:          "Facebook",
+    threads:           "Threads",
+    bluesky:           "Bluesky",
+    bluesky_personal:  "Bluesky",
+  };
+
+  const displayPostCounts: Record<string, number> = {};
+  for (const [key, count] of Object.entries(realPostCounts)) {
+    const label = platformKeyToDisplay[key] ?? key;
+    displayPostCounts[label] = (displayPostCounts[label] ?? 0) + count;
+  }
+
+  type StatRecord = { platform: string; followers: number; engagement: number; ctr: number; posts: number; lead_score: number; updated_at: string | null };
+  const existing = new Map((data ?? []).map((r) => [String((r as { platform: string }).platform), r as StatRecord]));
+  const merged = DEFAULT_PLATFORMS.map((p) => {
+    const saved: StatRecord = existing.get(p) ?? { platform: p, followers: 0, engagement: 0, ctr: 0, posts: 0, lead_score: 0, updated_at: null };
+    return { ...saved, posts: displayPostCounts[p] ?? saved.posts };
+  });
 
   return Response.json(merged, { headers: { "Cache-Control": "no-store" } });
 }

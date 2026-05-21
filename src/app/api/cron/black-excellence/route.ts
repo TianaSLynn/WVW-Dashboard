@@ -4,6 +4,7 @@ import { postToLinkedIn } from "@/lib/linkedin";
 import { postToFacebook, postToThreads } from "@/lib/facebook";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { appendPostLog } from "@/lib/logger";
+import { sendCronSummary } from "@/lib/notify";
 
 export const maxDuration = 60;
 
@@ -87,8 +88,10 @@ export async function GET(req: NextRequest) {
           : platform === "facebook" ? posts.facebook
           : posts.bluesky_wvw,
       status: r.status as "posted" | "queued" | "error" | "skipped",
+      error_detail: r.error,
     });
   });
 
+  void sendCronSummary("Black Excellence", category, results);
   return Response.json({ category, subject: posts.subject, results, timestamp: new Date().toISOString() });
 }

@@ -3,6 +3,7 @@ import { generateDailyPosts } from "@/lib/generate-posts";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { postToThreads } from "@/lib/facebook";
 import { appendPostLog } from "@/lib/logger";
+import { sendCronSummary } from "@/lib/notify";
 import { getTodayTheme } from "@/lib/schedule";
 
 export const maxDuration = 60;
@@ -67,9 +68,11 @@ export async function GET(req: NextRequest) {
       theme: `[Morning] ${theme}`,
       text: (posts[platform as keyof typeof posts] ?? "") as string,
       status: r.status as "posted" | "queued" | "error" | "skipped",
+      error_detail: r.error,
     });
   });
 
+  void sendCronSummary("Morning Posts", theme, results);
   return Response.json({
     slot: "morning",
     theme,

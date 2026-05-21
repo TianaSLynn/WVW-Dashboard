@@ -1,86 +1,59 @@
-import { readFileSync } from "fs";
-import { NextRequest } from "next/server";
+import { supabase } from "@/lib/supabase";
 
-interface ContentRow {
-  id: string;
-  date: string;
-  platform: string;
-  account: string;
-  content_type: string;
-  theme: string;
-  status: string;
-  file_path: string;
-  notes: string;
-}
-
-function parseCSV(raw: string): ContentRow[] {
-  const lines = raw.trim().split("\n");
-  const headers = lines[0].split(",").map((h) => h.trim());
-  return lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim());
-    return headers.reduce((obj, key, i) => {
-      obj[key as keyof ContentRow] = values[i] ?? "";
-      return obj;
-    }, {} as ContentRow);
-  });
-}
-
-export async function GET(_req: NextRequest) {
-  const trackerPath =
-    process.env["WVW_TRACKER_PATH"] ??
-    "/Users/tearz/Documents/Claude/Projects/wvw-full-os/data/content-tracker.csv";
-
-  let rows: ContentRow[] = [];
-  try {
-    const raw = readFileSync(trackerPath, "utf-8");
-    rows = parseCSV(raw);
-  } catch {
-    return Response.json({ rows: [], byPlatform: {}, byStatus: {}, byTheme: {}, total: 0 });
-  }
-
-  // Summaries
-  const byPlatform = rows.reduce<Record<string, number>>((acc, r) => {
-    acc[r.platform] = (acc[r.platform] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const byStatus = rows.reduce<Record<string, number>>((acc, r) => {
-    acc[r.status] = (acc[r.status] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const byTheme = rows.reduce<Record<string, number>>((acc, r) => {
-    acc[r.theme] = (acc[r.theme] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  // Latest 20 for content map
-  const recent = rows.slice(0, 20).map((r) => ({
-    id: r.id,
-    date: r.date,
-    channel: platformLabel(r.platform),
-    topic: r.notes,
-    theme: r.theme,
-    status: capitalize(r.status),
-    content_type: r.content_type,
-  }));
-
-  return Response.json({ rows: recent, byPlatform, byStatus, byTheme, total: rows.length });
-}
+export const dynamic = "force-dynamic";
 
 function platformLabel(p: string): string {
   const map: Record<string, string> = {
     linkedin_personal: "LinkedIn Personal",
-    linkedin_wvw: "LinkedIn WVW",
-    instagram: "Instagram",
-    tiktok: "TikTok",
-    facebook: "Facebook",
-    threads: "Threads",
-    bluesky: "Bluesky",
+    linkedin_wvw:      "LinkedIn WVW",
+    instagram:         "Instagram",
+    tiktok:            "TikTok",
+    facebook:          "Facebook",
+    threads:           "Threads",
+    bluesky:           "Bluesky",
+    bluesky_personal:  "Bluesky Personal",
   };
   return map[p] ?? p;
 }
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
+export async function GET() {
+  const { data, error } = await supabase
+    .from("post_log")
+    .select("id, created_at, platform, theme, status, excerpt")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error) return Response.json({ rows: [], byPlatform: {}, byStatus: {}, byTheme: {}, total: 0 });
+
+  const rows = data ?? [];
+
+  const byPlatform = rows.reduce<Record<string, number>>((acc, r) => {
+    const label = platformLabel(r.platform as string);
+    acc[label] = (acc[label] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const byStatus = rows.reduce<Record<string, number>>((acc, r) => {
+    const s = String(r.status ?? "unknown");
+    acc[s] = (acc[s] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const byTheme = rows.reduce<Record<string, number>>((acc, r) => {
+    const t = String(r.theme ?? "general");
+    acc[t] = (acc[t] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const recent = rows.slice(0, 30).map((r) => ({
+    id: String(r.id),
+    date: String(r.created_at ?? "").slice(0, 10),
+    channel: platformLabel(r.platform as string),
+    topic: String(r.excerpt ?? "").slice(0, 120) || String(r.theme ?? ""),
+    theme: String(r.theme ?? ""),
+    status: r.status === "posted" ? "Posted" : r.status === "error" ? "Error" : "Draft",
+    content_type: "post",
+  }));
+
+  return Response.json({ rows: recent, byPlatform, byStatus, byTheme, total: rows.length });
 }

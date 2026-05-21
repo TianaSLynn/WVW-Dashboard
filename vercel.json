@@ -22,7 +22,27 @@
     },
     {
       "path": "/api/cron/morning",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/morning-life",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/evening-life",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/deadline-check",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/blog-notify",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/newsletter-monthly",
+      "schedule": "0 14 20 * *"
     }
   ]
 }

@@ -4,6 +4,7 @@ import { postToLinkedIn } from "@/lib/linkedin";
 import { postToFacebook, postToThreads } from "@/lib/facebook";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { appendPostLog } from "@/lib/logger";
+import { sendCronSummary } from "@/lib/notify";
 
 export const maxDuration = 60;
 
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
   // ── LinkedIn WVW Page ──
   const orgUrn = process.env.LINKEDIN_ORG_URN;
   if (process.env.LINKEDIN_ACCESS_TOKEN && orgUrn) {
-    results.linkedin_wvw = await run(() => postToLinkedIn(wisdom, orgUrn));
+    results.linkedin_wvw = await run(() => postToLinkedIn(wisdom, orgUrn, true));
   } else {
     results.linkedin_wvw = { status: "skipped", error: "LinkedIn WVW not configured" };
   }
@@ -82,8 +83,9 @@ export async function GET(req: NextRequest) {
   }
 
   Object.entries(results).forEach(([platform, r]) => {
-    void appendPostLog({ platform, theme: "Unicorn Wisdom", text: wisdom, status: r.status as "posted" | "queued" | "error" | "skipped" });
+    void appendPostLog({ platform, theme: "Unicorn Wisdom", text: wisdom, status: r.status as "posted" | "queued" | "error" | "skipped", error_detail: r.error });
   });
 
+  void sendCronSummary("Unicorn Wisdom", "Unicorn Wisdom", results);
   return Response.json({ wisdom, results, timestamp: new Date().toISOString() });
 }
