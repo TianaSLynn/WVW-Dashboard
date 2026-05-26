@@ -1,12 +1,24 @@
 {
   "crons": [
     {
-      "path": "/api/cron/daily",
-      "schedule": "0 17 * * *"
+      "path": "/api/cron/morning-life",
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/cron/wisdom",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/morning",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/blog-notify",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/daily",
+      "schedule": "0 17 * * *"
     },
     {
       "path": "/api/cron/newsletter",
@@ -21,24 +33,12 @@
       "schedule": "0 21 * * *"
     },
     {
-      "path": "/api/cron/morning",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/morning-life",
-      "schedule": "0 13 * * *"
-    },
-    {
       "path": "/api/cron/evening-life",
       "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/deadline-check",
       "schedule": "0 23 * * *"
-    },
-    {
-      "path": "/api/cron/blog-notify",
-      "schedule": "0 14 * * *"
     },
     {
       "path": "/api/cron/newsletter-monthly",

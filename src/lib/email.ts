@@ -568,3 +568,56 @@ export async function sendEveningEmail(data: {
   if (error) throw new Error(`Resend error: ${error.message}`);
   return result?.id ?? "sent";
 }
+
+export async function sendDeadlineAlert(sections: {
+  overdue?: { title: string; due_date: string }[];
+  dueToday?: { title: string }[];
+  dueTomorrow?: { title: string }[];
+  dueSoon?: { title: string; due_date: string }[];
+}): Promise<string> {
+  const to = process.env.NOTIFY_EMAIL ?? "tiana@wholisticvibeswellness.com";
+
+  const block = (emoji: string, label: string, color: string, rows: string[]) => `
+    <div style="margin:16px 0 0;padding:16px 20px;background:#F5F0E8;border-radius:12px;border-left:4px solid ${color};">
+      <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:${color};text-transform:uppercase;">${emoji} ${label}</p>
+      ${rows.map(r => `<p style="margin:3px 0;font-size:14px;color:#1A1714;">${r}</p>`).join("")}
+    </div>`;
+
+  let bodyHtml = "";
+  if (sections.overdue?.length)
+    bodyHtml += block("⚠️", "Overdue", "#C4625A", sections.overdue.map(t => `${t.title} <span style="color:#999;font-size:12px;">(was due ${t.due_date})</span>`));
+  if (sections.dueToday?.length)
+    bodyHtml += block("🔥", "Due Today", "#D4842A", sections.dueToday.map(t => t.title));
+  if (sections.dueTomorrow?.length)
+    bodyHtml += block("⏰", "Due Tomorrow", "#B8A06A", sections.dueTomorrow.map(t => t.title));
+  if (sections.dueSoon?.length)
+    bodyHtml += block("📅", "Coming Up (3 days)", "#4A5E4F", sections.dueSoon.map(t => `${t.title} <span style="color:#999;font-size:12px;">— due ${t.due_date}</span>`));
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Deadline Alert</title></head>
+<body style="margin:0;padding:32px 16px;background:#1A1714;font-family:Georgia,serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+<table width="100%" style="max-width:560px;" cellpadding="0" cellspacing="0">
+  <tr><td style="background:#1C2A3A;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
+    <p style="margin:0 0 4px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#B8A06A;">WVW Command Center</p>
+    <h1 style="margin:0;font-size:26px;font-weight:400;color:#F5F0E8;">Deadline Check-In 📋</h1>
+  </td></tr>
+  <tr><td style="background:#FAFAF7;padding:24px 32px 32px;">
+    <p style="margin:0 0 4px;font-size:14px;color:#1A1714;">Queen, here's what needs your eyes today.</p>
+    ${bodyHtml}
+    <p style="margin:20px 0 0;font-size:13px;color:#4A5E4F;font-style:italic;">You got this. 👑</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+
+  const resend = client();
+  const { data: result, error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: "⏰ Deadline Check-In — WVW Command Center",
+    html,
+  });
+  if (error) throw new Error(error.message);
+  return result?.id ?? "";
+}
