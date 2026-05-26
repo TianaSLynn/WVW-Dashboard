@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/lib/supabase";
 import { sendMorningEmail } from "@/lib/email";
 import { todayEST, weekStartEST, dayNameEST } from "@/lib/time";
+import { generateDailyBrief } from "@/lib/daily-brief";
 
 const PRIORITY_EMOJI: Record<string, string> = { high: "🔥", medium: "⚡", low: "📝" };
 const DAY_EMOJI = ["☀️","🌟","✨","💫","🌸","🎉","🌙"];
@@ -67,34 +68,34 @@ interface MorningExtras {
   song: string;
 }
 
-async function getRecentSmsExtras(): Promise<{ wisdoms: string[]; facts: string[]; songs: string[] }> {
+async function getRecentSmsExtras(): Promise<{ wisdoms: string[]; facts: string[]; songs: string[]; beNames: string[] }> {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data } = await supabase.from("sms_log").select("body").gte("created_at", since).eq("direction", "outbound").limit(60);
   const wisdoms: string[] = [];
   const facts: string[] = [];
   const songs: string[] = [];
+  const beNames: string[] = [];
   for (const row of data ?? []) {
     const body = String(row.body ?? "");
     for (const line of body.split("\n")) {
       if (line.startsWith("🦄")) wisdoms.push(line.replace(/^🦄\s*/, "").trim());
       if (line.startsWith("✊")) facts.push(line.replace(/^✊[🏾]?\s*/, "").trim());
       if (line.startsWith("🎵")) songs.push(line.replace(/^🎵\s*/, "").trim());
+      if (line.startsWith("BE:")) beNames.push(line.replace(/^BE:\s*/, "").trim());
     }
   }
-  return { wisdoms, facts, songs };
+  return { wisdoms, facts, songs, beNames };
 }
 
-async function generateExtras(dayName: string): Promise<MorningExtras> {
+async function generateExtras(dayName: string, recentData: Awaited<ReturnType<typeof getRecentSmsExtras>>): Promise<MorningExtras> {
   const empty: MorningExtras = { wisdom: "", black_fact: "", song: "" };
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return empty;
 
-  const recent = await getRecentSmsExtras();
-
   const noRepeat = [
-    recent.wisdoms.length > 0 ? `NEVER REPEAT these wisdoms (already sent):\n${recent.wisdoms.map((w) => `- "${w}"`).join("\n")}` : "",
-    recent.facts.length > 0 ? `NEVER REPEAT these Black facts/people (already sent):\n${recent.facts.map((f) => `- "${f}"`).join("\n")}` : "",
-    recent.songs.length > 0 ? `NEVER REPEAT these songs (already sent): ${recent.songs.join(", ")}` : "",
+    recentData.wisdoms.length > 0 ? `NEVER REPEAT these wisdoms:\n${recentData.wisdoms.map((w) => `- "${w}"`).join("\n")}` : "",
+    recentData.facts.length > 0 ? `NEVER REPEAT these Black facts/people:\n${recentData.facts.map((f) => `- "${f}"`).join("\n")}` : "",
+    recentData.songs.length > 0 ? `NEVER REPEAT these songs: ${recentData.songs.join(", ")}` : "",
   ].filter(Boolean).join("\n\n");
 
   try {
@@ -104,16 +105,7 @@ async function generateExtras(dayName: string): Promise<MorningExtras> {
       max_tokens: 250,
       messages: [{
         role: "user",
-        content: `Today is ${dayName}. You are creating a morning briefing for Tiána Lynn — Black neurodivergent founder of WVW.
-
-${noRepeat}
-
-Return ONLY valid JSON, no markdown:
-{
-  "wisdom": "One short sentence of WVW wisdom. Structural, never hollow. Max 80 chars.",
-  "black_fact": "One sentence. Real Black person's achievement — name them specifically. Max 90 chars.",
-  "song": "Artist - Song Title. A Black artist. Match day energy. Max 40 chars."
-}`,
+        content: `Today is ${dayName}. Morning briefing for Tiána Lynn — Black neurodivergent founder of WVW.\n\n${noRepeat}\n\nReturn ONLY valid JSON:\n{\n  "wisdom": "One short WVW wisdom. Structural, never hollow. Max 80 chars.",\n  "black_fact": "One sentence. Real Black person's achievement — name them. Max 90 chars.",\n  "song": "Artist - Song Title. Black artist. Max 40 chars."\n}`,
       }],
     });
     const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
@@ -129,70 +121,76 @@ export async function buildAndSendMorning(): Promise<{ sent: boolean; preview: s
   const today = todayEST();
   const dayName = dayNameEST();
   const dayOfWeek = new Date(today + "T12:00:00").getDay();
+  const dateStr = new Date(today + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
   const [
     weather,
     { data: tasks },
     { data: overdue },
     { data: weekPlan },
+    { data: habits },
+    { data: todayIntention },
+    recentData,
   ] = await Promise.all([
     fetchWeather(),
-    supabase.from("tasks").select("title, priority").in("status", ["open","in_progress"]).order("priority").limit(5),
-    supabase.from("tasks").select("title").in("status", ["open","in_progress"]).lt("due_date", today).not("due_date", "is", null).limit(2),
+    supabase.from("tasks").select("title, priority").in("status", ["open","in_progress"]).order("priority").limit(10),
+    supabase.from("tasks").select("title").in("status", ["open","in_progress"]).lt("due_date", today).not("due_date", "is", null).limit(3),
     supabase.from("weekly_intentions").select("main_focus, word_of_week").eq("week_start", weekStartEST()).single(),
+    supabase.from("habits").select("name").eq("active", true).order("sort_order").limit(8),
+    supabase.from("daily_intentions").select("top3, morning_note, one_thing").eq("date", today).single(),
+    getRecentSmsExtras(),
   ]);
 
-  // generateExtras queries sms_log for recent history — run after initial parallel fetch
-  const rawExtras = await generateExtras(dayName);
+  // Run both Claude calls in parallel
+  const [rawExtras, dailyBrief] = await Promise.all([
+    generateExtras(dayName, recentData),
+    generateDailyBrief(dayName, dateStr, dayOfWeek, recentData.beNames),
+  ]);
 
   const wisdom = rawExtras.wisdom || FALLBACK_WISDOMS[dayOfWeek];
   const blackFact = rawExtras.black_fact || FALLBACK_FACTS[dayOfWeek];
   const song = rawExtras.song || FALLBACK_SONGS[dayOfWeek];
 
-  const parts: string[] = [];
-
-  // Greeting + weather on one line
-  const greeting = `${DAY_EMOJI[dayOfWeek]} Morning, Queen! ${dayName}${weather ? ` | ${weather}` : ""}`;
-  parts.push(greeting);
-
-  // Wisdom + fact + song condensed
-  if (wisdom) parts.push(`🦄 ${wisdom}`);
-  if (blackFact) parts.push(`✊🏾 ${blackFact}`);
-  if (song) parts.push(`🎵 ${song}`);
-
-  // Focus
   const focus = (weekPlan as { main_focus?: string; word_of_week?: string } | null);
-  if (focus?.main_focus) parts.push(`🎯 ${focus.main_focus}`);
+  const intention = todayIntention as { top3?: string[]; morning_note?: string; one_thing?: string } | null;
+  const habitNames = ((habits ?? []) as { name: string }[]).map(h => h.name);
+  const intentionItems = (intention?.top3 ?? []).filter(Boolean) as string[];
 
-  // Top 2 tasks only
   const sortedTasks = ((tasks ?? []) as { title: string; priority: string }[])
     .sort((a, b) => ["high","medium","low"].indexOf(a.priority) - ["high","medium","low"].indexOf(b.priority))
-    .slice(0, 2);
+    .slice(0, 5);
 
-  if (sortedTasks.length > 0) {
-    const taskLines = sortedTasks.map((t, i) => `${i + 1}. ${PRIORITY_EMOJI[t.priority] ?? ""}${t.title}`).join("\n");
-    parts.push(`📋 Today:\n${taskLines}`);
-  }
-
-  // Overdue (1 max)
   const overdueList = (overdue ?? []) as { title: string }[];
-  if (overdueList.length > 0) parts.push(`⚠️ Overdue: ${overdueList[0].title}`);
 
-  parts.push(SIGNOFFS[dayOfWeek]);
+  // Plain text log for no-repeat tracking (sms_log)
+  const parts: string[] = [
+    `${DAY_EMOJI[dayOfWeek]} Morning, Queen! ${dayName}${weather ? ` | ${weather}` : ""}`,
+    wisdom ? `🦄 ${wisdom}` : "",
+    blackFact ? `✊🏾 ${blackFact}` : "",
+    song ? `🎵 ${song}` : "",
+    focus?.word_of_week ? `✨ ${focus.word_of_week}` : "",
+    focus?.main_focus ? `🎯 ${focus.main_focus}` : "",
+    dailyBrief?.be_name ? `BE: ${dailyBrief.be_name}` : "",
+    SIGNOFFS[dayOfWeek],
+  ].filter(Boolean);
 
   const preview = parts.join("\n").slice(0, 200);
 
   const emailId = await sendMorningEmail({
     dayName,
-    date: new Date(today + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+    date: dateStr,
     weather,
     wisdom,
-    blackFact: blackFact,
+    blackFact,
     song,
     focus: focus?.main_focus ?? "",
+    wordOfWeek: focus?.word_of_week ?? "",
+    intentions: intentionItems,
+    habits: habitNames,
     tasks: sortedTasks,
     overdue: overdueList.map((t) => t.title),
     signoff: SIGNOFFS[dayOfWeek],
+    dailyBrief: dailyBrief ?? undefined,
   });
 
   supabase.from("sms_log").insert({ direction: "outbound", body: parts.join("\n") }).then(({ error }) => {
