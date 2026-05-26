@@ -165,7 +165,7 @@ export async function sendEveningEmail(data: {
 <table width="100%" style="max-width:580px;" cellpadding="0" cellspacing="0">
 
   <!-- Header -->
-  <tr><td style="background:linear-gradient(135deg,#1C2A3A 0%,#2A1C3A 100%);border-radius:20px 20px 0 0;padding:36px 36px 28px;text-align:center;">
+  <tr><td style="background:#1C2A3A;border-radius:20px 20px 0 0;padding:36px 36px 28px;text-align:center;">
     <p style="margin:0 0 6px;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#B8A06A;">Wholistic Vibes Wellness</p>
     <h1 style="margin:0 0 8px;font-size:32px;font-weight:400;color:#F5F0E8;letter-spacing:-0.5px;">Evening Check-In 🌙</h1>
     <p style="margin:0;font-size:15px;color:#8a9fbf;">${data.dayName} · ${data.date}</p>
@@ -175,13 +175,9 @@ export async function sendEveningEmail(data: {
   <tr><td style="background:#F5F0E8;padding:0 36px 36px;">
 
     <!-- Rose & Thorn -->
-    <div style="margin:28px 0 0;display:flex;gap:16px;">
-
-      <div style="flex:1;padding:20px;background:#FFF8F6;border-radius:12px;border-left:4px solid #C4A09A;">
-        <p style="margin:0 0 6px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#C4625A;">🌹 Rose</p>
-        <p style="margin:0;font-size:14px;color:#1A1714;line-height:1.6;font-style:italic;">${data.rose || "You showed up. That counts."}</p>
-      </div>
-
+    <div style="margin:28px 0 0;padding:20px;background:#FFF8F6;border-radius:12px;border-left:4px solid #C4A09A;">
+      <p style="margin:0 0 6px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#C4625A;">🌹 Rose</p>
+      <p style="margin:0;font-size:14px;color:#1A1714;line-height:1.6;font-style:italic;">${data.rose || "You showed up. That counts."}</p>
     </div>
     <div style="margin:12px 0 0;padding:20px;background:#F6FFF8;border-radius:12px;border-left:4px solid #4A5E4F;">
       <p style="margin:0 0 6px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#4A5E4F;">🌵 Thorn</p>

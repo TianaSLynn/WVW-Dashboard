@@ -16,6 +16,36 @@ const SIGNOFFS = [
   "Your ancestors are with you today. Go be great.",
 ];
 
+const FALLBACK_WISDOMS = [
+  "Boundaries are not walls — they are the blueprint for how you want to be treated.",
+  "Healing is not linear. Neither is building something that matters.",
+  "Your sensitivity is not a liability. It is your greatest intelligence.",
+  "Rest is a revolutionary act when the world profits from your exhaustion.",
+  "You cannot pour from a reservoir that no one is helping to fill.",
+  "Alignment first. Hustle second. Always.",
+  "The work you do in private is the foundation of everything visible.",
+];
+
+const FALLBACK_FACTS = [
+  "Madam C.J. Walker became the first female self-made millionaire in America in 1919.",
+  "Katherine Johnson's calculations were so precise NASA astronauts refused to launch without her sign-off.",
+  "Garrett Morgan invented the three-position traffic signal and the gas mask.",
+  "Dr. Patricia Bath invented the Laserphaco Probe, revolutionizing cataract surgery in 1988.",
+  "Lewis Latimer drafted the patent drawings for Alexander Graham Bell's telephone and improved Edison's lightbulb.",
+  "Mae Jemison became the first Black woman in space aboard the Space Shuttle Endeavour in 1992.",
+  "Dr. Daniel Hale Williams performed the world's first successful open-heart surgery in 1893.",
+];
+
+const FALLBACK_SONGS = [
+  "Beyoncé - Bigger",
+  "India.Arie - I Am Light",
+  "Erykah Badu - Tyrone",
+  "Nina Simone - Feeling Good",
+  "Lizzo - Juice",
+  "H.E.R. - Focus",
+  "Janelle Monáe - Q.U.E.E.N.",
+];
+
 async function fetchWeather(): Promise<string> {
   const location = process.env.WEATHER_LOCATION ?? "New York";
   try {
@@ -113,7 +143,11 @@ export async function buildAndSendMorning(): Promise<{ sent: boolean; preview: s
   ]);
 
   // generateExtras queries sms_log for recent history — run after initial parallel fetch
-  const extras = await generateExtras(dayName);
+  const rawExtras = await generateExtras(dayName);
+
+  const wisdom = rawExtras.wisdom || FALLBACK_WISDOMS[dayOfWeek];
+  const blackFact = rawExtras.black_fact || FALLBACK_FACTS[dayOfWeek];
+  const song = rawExtras.song || FALLBACK_SONGS[dayOfWeek];
 
   const parts: string[] = [];
 
@@ -122,9 +156,9 @@ export async function buildAndSendMorning(): Promise<{ sent: boolean; preview: s
   parts.push(greeting);
 
   // Wisdom + fact + song condensed
-  if (extras.wisdom) parts.push(`🦄 ${extras.wisdom}`);
-  if (extras.black_fact) parts.push(`✊🏾 ${extras.black_fact}`);
-  if (extras.song) parts.push(`🎵 ${extras.song}`);
+  if (wisdom) parts.push(`🦄 ${wisdom}`);
+  if (blackFact) parts.push(`✊🏾 ${blackFact}`);
+  if (song) parts.push(`🎵 ${song}`);
 
   // Focus
   const focus = (weekPlan as { main_focus?: string; word_of_week?: string } | null);
@@ -152,9 +186,9 @@ export async function buildAndSendMorning(): Promise<{ sent: boolean; preview: s
     dayName,
     date: new Date(today + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
     weather,
-    wisdom: extras.wisdom,
-    blackFact: extras.black_fact,
-    song: extras.song,
+    wisdom,
+    blackFact: blackFact,
+    song,
     focus: focus?.main_focus ?? "",
     tasks: sortedTasks,
     overdue: overdueList.map((t) => t.title),
