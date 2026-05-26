@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
 const API_KEY = process.env.BEEHIIV_API_KEY ?? '';
-const PUB_ID  = process.env.BEEHIIV_PUBLICATION_ID ?? '';
+const rawPubId = process.env.BEEHIIV_PUBLICATION_ID ?? '';
+const PUB_ID  = rawPubId.startsWith('pub_') ? rawPubId : `pub_${rawPubId}`;
 const BASE    = 'https://api.beehiiv.com/v2';
 
 async function bfetch(path: string) {
