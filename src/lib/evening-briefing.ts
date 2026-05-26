@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/lib/supabase";
-import { sendSMS } from "@/lib/twilio";
+import { sendEveningEmail } from "@/lib/email";
 import { todayEST } from "@/lib/time";
 
 const THORNS_ROSES_PROMPTS = [
@@ -129,14 +129,24 @@ export async function buildAndSendEvening(): Promise<{ sent: boolean; preview: s
   lines.push("Rest well. 🌿");
 
   const body = lines.join("\n");
+  const todayDate = todayEST();
+  const dateStr = new Date(todayDate + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-  const to = process.env.USER_PHONE_NUMBER;
-  if (!to) throw new Error("USER_PHONE_NUMBER not set");
-  const sid = await sendSMS(to, body);
+  const emailId = await sendEveningEmail({
+    dayName,
+    date: dateStr,
+    rose: reflection.rose,
+    thorn: reflection.thorn,
+    closedToday: closedNames.slice(0, 5),
+    openTasks: openNames.slice(0, 5),
+    overdue: (overdueTasks ?? [] as { title: string }[]).map((t: { title: string }) => t.title),
+    focusTomorrow: reflection.focus_tomorrow,
+    prompt: THORNS_ROSES_PROMPTS[promptIdx],
+  });
 
   supabase.from("sms_log").insert({ direction: "outbound", body }).then(({ error }) => {
     if (error) console.error("[evening-briefing] sms_log:", error.message);
   });
 
-  return { sent: true, preview: body.slice(0, 200), sid };
+  return { sent: true, preview: body.slice(0, 200), sid: emailId };
 }

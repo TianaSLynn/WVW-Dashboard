@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/lib/supabase";
-import { sendMorningText } from "@/lib/twilio";
+import { sendMorningEmail } from "@/lib/email";
 import { todayEST, weekStartEST, dayNameEST } from "@/lib/time";
 
 const PRIORITY_EMOJI: Record<string, string> = { high: "🔥", medium: "⚡", low: "📝" };
@@ -146,15 +146,24 @@ export async function buildAndSendMorning(): Promise<{ sent: boolean; preview: s
 
   parts.push(SIGNOFFS[dayOfWeek]);
 
-  // Cap at 600 chars to stay under 5 segments
-  let body = parts.join("\n");
-  if (body.length > 600) body = body.slice(0, 597) + "…";
+  const preview = parts.join("\n").slice(0, 200);
 
-  const sid = await sendMorningText(body);
+  const emailId = await sendMorningEmail({
+    dayName,
+    date: new Date(today + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+    weather,
+    wisdom: extras.wisdom,
+    blackFact: extras.black_fact,
+    song: extras.song,
+    focus: focus?.main_focus ?? "",
+    tasks: sortedTasks,
+    overdue: overdueList.map((t) => t.title),
+    signoff: SIGNOFFS[dayOfWeek],
+  });
 
-  supabase.from("sms_log").insert({ direction: "outbound", body }).then(({ error }) => {
+  supabase.from("sms_log").insert({ direction: "outbound", body: parts.join("\n") }).then(({ error }) => {
     if (error) console.error("[morning-briefing] sms_log:", error.message);
   });
 
-  return { sent: true, preview: body.slice(0, 200), sid };
+  return { sent: true, preview, sid: emailId };
 }
