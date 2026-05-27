@@ -77,6 +77,110 @@ export interface EveningBrief {
   closing_affirmation: string;
 }
 
+const CONTEXT_HEADER = `Tiána Lynn — Black neurodivergent founder of WVW (Wholistic Vibes Wellness). Capricorn sun, born Jan 15 1986.
+WVW PILLARS: Psychological Safety | Black Mental Health | Black Neurodivergence | Systems & Power Awareness | Lived Experience as Expertise
+VOICE: Political clarity (Jasmine Crockett energy). Poetic cadence (Lynae Vanee energy). Never imitate or quote them.
+BRAND: "Soft in appearance. Uncompromising in practice."
+NO: corporate fluff, hollow affirmations, "Let's normalize...", toxic positivity, preachy tone.`;
+
+function parseJson<T>(raw: string): Partial<T> {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return {};
+  try { return JSON.parse(match[0]) as Partial<T>; } catch { return {}; }
+}
+
+async function generateBriefPart1(
+  client: Anthropic,
+  dayName: string,
+  date: string,
+  dayOfWeek: number,
+  noRepeatBE: string,
+): Promise<Partial<DailyBrief>> {
+  const split = WORKOUT_SPLIT[dayOfWeek] ?? WORKOUT_SPLIT[1];
+  const prompt = `${CONTEXT_HEADER}
+
+Today is ${dayName}, ${date}. TODAY'S WORKOUT: ${split.focus} — ${split.theme}${noRepeatBE}
+
+Return ONLY valid JSON. No markdown. Escape newlines as \\n:
+{
+  "vibe_line": "1 evocative specific line — today's energy. Not generic.",
+  "word_of_day": "one word",
+  "energy_to_protect": "1 line — what she must guard today",
+  "ps_action": "Psychological Safety — how she will move/speak/protect space today. 1 precise sentence.",
+  "spa_action": "Systems & Power Awareness — what she will notice, name, or interrupt. 1 precise sentence.",
+  "lxe_action": "Lived Experience as Expertise — how she honors her story as authority today. 1 sentence.",
+  "code_today": "Code I Live By Today. 1-2 grounded poetic sentences. Real and structural.",
+  "astro_theme": "Theme for Capricorn sun today. 1 sentence.",
+  "astro_emotional_weather": "Emotional weather. 1 sentence.",
+  "astro_power_move": "One specific action for today. Start with a verb.",
+  "astro_avoid": "One specific avoidance cue. Start with Avoid.",
+  "astro_affirmation": "1 declarative embodied line. Not hollow.",
+  "herb_primary": "Primary herb name. Not white sage. Ethically sourced.",
+  "herb_primary_why": "Why it aligns with today's vibe. 1 sentence.",
+  "herb_primary_how": "Simple use instructions. 1 sentence.",
+  "herb_supporting": "Supporting herb or smoke-free alternative.",
+  "herb_supporting_why": "1 sentence.",
+  "herb_supporting_how": "1 sentence.",
+  "herb_safety": "Ventilation, pets/asthma awareness, non-smoke option. 1 sentence.",
+  "workout_focus": "${split.focus}",
+  "workout_theme": "${split.theme}",
+  "workout_warmup": "4-6 min warmup. 3-4 movements with duration. Numbered list using \\n.",
+  "workout_beginner": "Beginner bodyweight circuit. 5-6 exercises with sets/reps. Numbered using \\n. Include form cue per exercise.",
+  "workout_levelup": "Level-up harder variations. Numbered using \\n.",
+  "workout_cooldown": "4-6 min cooldown. 3-4 stretches with hold time. Numbered using \\n.",
+  "workout_win_condition": "1 sentence — what counts as a win on a low-energy day.",
+  "be_name": "Full name of Black excellence spotlight person. Must be real.",
+  "be_who": "Who they are. 1 sentence.",
+  "be_what": ["concrete achievement 1", "achievement 2", "achievement 3"],
+  "be_why": ["why it matters 1", "why 2", "why 3"],
+  "be_mirrors": ["how their work mirrors Tiána/WVW 1", "connection 2", "connection 3"],
+  "be_quote": "A real or paraphrased quote. Label paraphrased if not verbatim.",
+  "prompt_healing": "1 personal healing journal prompt. Specific and embodied.",
+  "prompt_ceo": "1 CEO/operations journal prompt. Structural and practical.",
+  "prompt_creative": "1 creative/spoken-word prompt. Evocative.",
+  "embodiment_action": "1-minute somatic embodiment action to do immediately after writing."
+}`;
+
+  const msg = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2000,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
+  return parseJson<DailyBrief>(raw);
+}
+
+async function generateBriefPart2(
+  client: Anthropic,
+  dayName: string,
+  date: string,
+): Promise<Partial<DailyBrief>> {
+  const prompt = `${CONTEXT_HEADER}
+
+Today is ${dayName}, ${date}.
+
+Return ONLY valid JSON. No markdown. Escape newlines as \\n:
+{
+  "linkedin_personal": "FULL post. 140-240 words. Strong opening hook (NOT 'I' as first word). Black lived experience and leadership. Voice: Jasmine Crockett + Lynae Vanee energy. End with ONE reflective question (not 'thoughts?'). Hashtags on last line. Use \\n for line breaks.",
+  "linkedin_wvw": "FULL post. 130-220 words. Written as 'we' (the brand). Explicitly names one WVW pillar. Luxury positioning. Subtle confident collaboration invitation. Hashtags on last line. Use \\n for line breaks.",
+  "facebook": "FULL post. Label first line as 'WVW Page:' or 'Personal Page:'. 90-170 words. Conversational but intentional. Include labeled line: 'Today\\'s Intention: [one sentence]'. Hashtags on last line. Use \\n for line breaks.",
+  "room_words": [
+    {"word": "word1", "room": "Executive / Boardroom / Leadership", "definition": "plain language", "room_use": "1 sentence", "my_use": "1 sentence aligned with WVW values", "caution": "1 sentence or null"},
+    {"word": "word2", "room": "Academic / Policy / Research", "definition": "plain language", "room_use": "1 sentence", "my_use": "1 sentence", "caution": "1 sentence or null"},
+    {"word": "word3", "room": "Spiritual / Healing / Ancestral", "definition": "plain language", "room_use": "1 sentence", "my_use": "1 sentence", "caution": "1 sentence or null"},
+    {"word": "word4", "room": "Media / Public Narrative / Messaging", "definition": "plain language", "room_use": "1 sentence", "my_use": "1 sentence", "caution": "1 sentence or null"}
+  ]
+}`;
+
+  const msg = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2000,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
+  return parseJson<DailyBrief>(raw);
+}
+
 export async function generateDailyBrief(
   dayName: string,
   date: string,
@@ -86,84 +190,19 @@ export async function generateDailyBrief(
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
-  const split = WORKOUT_SPLIT[dayOfWeek] ?? WORKOUT_SPLIT[1];
   const noRepeatBE = recentBENames.length > 0
     ? `\n\nNEVER spotlight these people (already featured recently): ${recentBENames.join(", ")}.`
     : "";
 
-  const prompt = `You are the morning intelligence assistant for Tiána Lynn, founder of Wholistic Vibes Wellness (WVW) — a luxury Black mental health + culture + systems consulting practice.
-
-Today is ${dayName}, ${date}.
-Birth data: January 15, 1986, 12:30 AM, Yonkers, NY (Capricorn sun).
-
-TODAY'S WORKOUT: ${dayName} = ${split.focus} — ${split.theme}
-
-WVW PILLARS: Psychological Safety | Black Mental Health | Black Neurodivergence | Systems & Power Awareness | Lived Experience as Expertise
-VOICE: Political clarity (Jasmine Crockett energy — direct, principled, unflinching). Poetic cadence (Lynae Vanee energy — intimate, embodied, truth-telling). Spoken-word rhythm meets executive presence. Never imitate or quote them.
-BRAND LINE: "Soft in appearance. Uncompromising in practice."
-
-NO: corporate fluff, hollow affirmations, "Let's normalize...", "Real talk...", "So often...", performative empathy, toxic positivity, humble-bragging, preachy tone, generic wellness speak.${noRepeatBE}
-
-Return ONLY valid JSON. No markdown. No code fences. No explanation. Escape all newlines as \\n inside string values:
-{
-  "vibe_line": "1 evocative, specific line — today's energy. Not generic.",
-  "word_of_day": "one word",
-  "energy_to_protect": "1 line — what she must guard today",
-  "ps_action": "Psychological Safety — how she will move/speak/protect space today. 1 precise sentence.",
-  "spa_action": "Systems & Power Awareness — what she will notice, name, or interrupt. 1 precise sentence.",
-  "lxe_action": "Lived Experience as Expertise — how she honors her story as authority today. 1 sentence.",
-  "code_today": "Code I Live By Today. 1-2 grounded, poetic sentences. Real and structural.",
-  "astro_theme": "Theme for Capricorn sun today. 1 sentence.",
-  "astro_emotional_weather": "Emotional weather. 1 sentence.",
-  "astro_power_move": "One specific action for today. Start with a verb.",
-  "astro_avoid": "One specific avoidance cue. Start with a verb or 'Avoid'.",
-  "astro_affirmation": "1 declarative embodied line. Not hollow. Not generic.",
-  "herb_primary": "Primary herb name. Not white sage. Ethically sourced, culturally respectful.",
-  "herb_primary_why": "Why it aligns with today's vibe. 1 sentence.",
-  "herb_primary_how": "Simple use instructions. 1 sentence.",
-  "herb_supporting": "Supporting herb or smoke-free alternative.",
-  "herb_supporting_why": "1 sentence.",
-  "herb_supporting_how": "1 sentence.",
-  "herb_safety": "Ventilation, pets/asthma awareness, non-smoke option. 1 sentence.",
-  "workout_focus": "${split.focus}",
-  "workout_theme": "${split.theme}",
-  "workout_warmup": "4-6 min warmup. 3-4 movements with duration. Numbered list using \\n between items.",
-  "workout_beginner": "Beginner bodyweight circuit. 5-6 exercises with sets and reps. Numbered using \\n. Include form cue per exercise. Include knee/wrist/back substitution where relevant.",
-  "workout_levelup": "Level-up version. Harder variations of same focus. Numbered using \\n.",
-  "workout_cooldown": "4-6 min cooldown. 3-4 stretches with hold time. Numbered using \\n.",
-  "workout_win_condition": "1 sentence — what counts as a win on a low-energy day.",
-  "linkedin_personal": "FULL post. 140-240 words. Strong opening hook (NOT 'I' as first word). Reflects Black lived experience and leadership. Voice: Jasmine Crockett + Lynae Vanee energy. End with ONE reflective question (not 'thoughts?'). Hashtags on last line. Use \\n for line breaks.",
-  "linkedin_wvw": "FULL post. 130-220 words. Written as 'we' (the brand). Explicitly names one WVW pillar. Luxury positioning. Subtle confident collaboration invitation. Hashtags on last line. Use \\n for line breaks.",
-  "facebook": "FULL post. Label first line as 'WVW Page:' or 'Personal Page:'. 90-170 words. Conversational but intentional. Include a labeled line: 'Today\\'s Intention: [one sentence]'. Hashtags on last line. Use \\n for line breaks.",
-  "be_name": "Full name of Black excellence spotlight person. Must be real.",
-  "be_who": "Who they are. 1 sentence.",
-  "be_what": ["concrete achievement 1", "concrete achievement 2", "concrete achievement 3"],
-  "be_why": ["why it matters 1", "why it matters 2", "why it matters 3"],
-  "be_mirrors": ["how their work mirrors Tiána's path/WVW pillar 1", "connection 2", "connection 3"],
-  "be_quote": "A real or paraphrased quote. Label '(paraphrased)' if not verbatim.",
-  "prompt_healing": "1 personal healing journal prompt. Specific and embodied.",
-  "prompt_ceo": "1 CEO/operations journal prompt. Structural and practical.",
-  "prompt_creative": "1 creative/spoken-word prompt. Evocative.",
-  "embodiment_action": "1-minute embodiment action to do immediately after writing. Somatic and specific.",
-  "room_words": [
-    {"word": "word1", "room": "Executive / Boardroom / Leadership", "definition": "plain language", "room_use": "1 sentence", "my_use": "1 sentence aligned with WVW values", "caution": "1 sentence or null"},
-    {"word": "word2", "room": "Academic / Policy / Research", "definition": "plain language", "room_use": "1 sentence", "my_use": "1 sentence", "caution": "1 sentence or null"},
-    {"word": "word3", "room": "Spiritual / Healing / Ancestral", "definition": "plain language", "room_use": "1 sentence", "my_use": "1 sentence", "caution": "1 sentence or null"},
-    {"word": "word4", "room": "Media / Public Narrative / Messaging", "definition": "plain language", "room_use": "1 sentence", "my_use": "1 sentence", "caution": "1 sentence or null"}
-  ]
-}`;
-
   try {
     const client = new Anthropic({ apiKey });
-    const msg = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }],
-    });
-    const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    return JSON.parse(match[0]) as DailyBrief;
+    const [part1, part2] = await Promise.all([
+      generateBriefPart1(client, dayName, date, dayOfWeek, noRepeatBE),
+      generateBriefPart2(client, dayName, date),
+    ]);
+    const merged = { ...part1, ...part2 } as DailyBrief;
+    if (!merged.vibe_line) return null;
+    return merged;
   } catch (err) {
     console.error("[daily-brief] morning generation failed:", String(err));
     return null;
