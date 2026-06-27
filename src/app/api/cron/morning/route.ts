@@ -6,7 +6,7 @@ import { appendPostLog } from "@/lib/logger";
 import { sendCronSummary } from "@/lib/notify";
 import { getTodayTheme } from "@/lib/schedule";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;

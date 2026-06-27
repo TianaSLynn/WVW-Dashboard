@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { generateDailyPosts } from "@/lib/generate-posts";
 import { getTodayTheme } from "@/lib/schedule";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
   const { platforms, theme } = await req.json() as { platforms: string[]; theme?: string };

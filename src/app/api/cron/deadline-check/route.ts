@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { sendDeadlineAlert } from "@/lib/email";
 import { todayEST, daysFromTodayEST } from "@/lib/time";
 
-export const maxDuration = 30;
+export const runtime = 'edge';
 
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET;

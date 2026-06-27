@@ -6,7 +6,7 @@ import { postToTwitter } from "@/lib/twitter";
 import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 // Posts a single already-generated text to a single platform.
 // Used by the Generate & Preview panel — text is pre-generated and reviewed before this is called.

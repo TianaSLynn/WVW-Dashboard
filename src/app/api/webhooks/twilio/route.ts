@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { sendSMS } from "@/lib/twilio";
 import { todayEST } from "@/lib/time";
 
-export const maxDuration = 60;
+
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

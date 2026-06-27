@@ -3,7 +3,7 @@ import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { postToThreads } from "@/lib/facebook";
 import { postToLinkedIn } from "@/lib/linkedin";
 
-export const maxDuration = 30;
+export const runtime = 'edge';
 
 const TEST_MESSAGE = "✓ WVW system check — this is a test post from the WVW Intelligence Platform. Ignore.";
 

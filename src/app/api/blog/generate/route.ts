@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

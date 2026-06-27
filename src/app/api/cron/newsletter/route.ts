@@ -26,9 +26,7 @@ export async function GET(req: NextRequest) {
   }
 
   const theme = getTodayTheme();
-  const baseUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "https://wvw-dashboard.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://wvw-command.netlify.app";
 
   const res = await fetch(`${baseUrl}/api/newsletter/create`, {
     method: "POST",

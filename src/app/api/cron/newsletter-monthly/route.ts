@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET;

@@ -1163,6 +1163,7 @@ export default function WVWCommandCenter() {
 
   const submitConversion = async () => {
     if (!conversionForm.description.trim()) return;
+    if (conversionForm.value_usd < 0) return;
     setConversionSaving(true);
     try {
       await fetch("/api/conversions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(conversionForm) });
@@ -1423,6 +1424,19 @@ export default function WVWCommandCenter() {
               ))}
             </div>
           </nav>
+
+          {/* Life Dashboard link */}
+          <a
+            href="https://wvwlifedashboard.netlify.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mx-2 mb-2 flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-medium transition-colors hover:opacity-90"
+            style={{ background: C.gold + "22", color: C.gold, border: `1px solid ${C.gold}44` }}
+          >
+            <span>🧠</span>
+            <span>Operations Hub</span>
+            <span className="ml-auto opacity-60">↗</span>
+          </a>
 
           {/* Date footer */}
           <div className="px-4 py-3 border-t text-[11px]" style={{ borderColor: N.border, color: N.muted }}>
@@ -4001,7 +4015,7 @@ export default function WVWCommandCenter() {
                     { label: "Facebook WVW",      key: "facebook" },
                     { label: "Instagram (Meta)",  key: "instagram" },
                     { label: "Threads",           key: "threads" },
-                    { label: "TikTok (Buffer)",   key: "tiktok_buffer" },
+                    { label: "TikTok (caption → Buffer, post video manually)", key: "tiktok_buffer" },
                   ].map(({ label, key }) => {
                     const connected = postingStatus?.connections[key] ?? false;
                     return (
@@ -5224,7 +5238,7 @@ export default function WVWCommandCenter() {
                       </div>
                       <div>
                         <p className="text-xs mb-1 font-medium" style={{ color: C.charcoal }}>Value (USD, optional)</p>
-                        <Input type="number" value={conversionForm.value_usd} onChange={(e) => setConversionForm((f) => ({ ...f, value_usd: Number(e.target.value) }))} placeholder="e.g. 4500" className="h-9 text-sm rounded-xl" style={{ background: C.ivory, borderColor: "#DDD7CD" }} />
+                        <Input type="number" min={0} value={conversionForm.value_usd} onChange={(e) => setConversionForm((f) => ({ ...f, value_usd: Math.max(0, Number(e.target.value)) }))} placeholder="e.g. 4500" className="h-9 text-sm rounded-xl" style={{ background: C.ivory, borderColor: "#DDD7CD" }} />
                       </div>
                     </div>
                     <div>
@@ -5435,8 +5449,9 @@ export default function WVWCommandCenter() {
                       testKeys: ["linkedin_personal", "linkedin_wvw"] as string[],
                       keys: ["LINKEDIN_ACCESS_TOKEN", "LINKEDIN_PERSON_URN", "LINKEDIN_ORG_URN"],
                       postStatus: postingStatus?.connections.linkedin_token && postingStatus?.connections.linkedin_person,
-                      note: "Token expires every 60 days — re-auth at /api/auth/linkedin",
+                      note: "Token expires every 60 days. If posting fails with REVOKED_ACCESS_TOKEN, click Re-connect below.",
                       analyticsNote: "Add r_organization_social scope to pull live follower + engagement data",
+                      reAuthUrl: "/api/auth/linkedin",
                     },
                     {
                       platform: "Bluesky WVW + Personal",
@@ -5451,8 +5466,8 @@ export default function WVWCommandCenter() {
                       testKeys: [] as string[],
                       keys: ["FACEBOOK_PAGE_ACCESS_TOKEN", "FACEBOOK_PAGE_ID"],
                       postStatus: postingStatus?.connections.facebook,
-                      note: "Long-lived token (60 days) — renew via Meta Graph API Explorer",
-                      analyticsNote: "Add pages_read_engagement scope to pull reach + follower data",
+                      note: "Current token is missing pages_manage_posts + pages_read_engagement permissions. Go to developers.facebook.com → Graph API Explorer → select your Page → generate token with those two scopes → exchange for long-lived token.",
+                      analyticsNote: "pages_read_engagement scope required for reach + follower data",
                     },
                     {
                       platform: "Instagram Business",
@@ -5467,8 +5482,9 @@ export default function WVWCommandCenter() {
                       testKeys: ["threads"] as string[],
                       keys: ["THREADS_ACCESS_TOKEN", "THREADS_USER_ID"],
                       postStatus: postingStatus?.connections.threads,
-                      note: "Generate via developers.facebook.com → your Threads app",
+                      note: "Token expires every 60 days. If posting fails with Invalid OAuth access token, click Re-connect below.",
                       analyticsNote: "Add threads_manage_insights scope for Threads analytics",
+                      reAuthUrl: "/api/auth/threads",
                     },
                     {
                       platform: "TikTok (via Buffer)",
@@ -5529,6 +5545,19 @@ export default function WVWCommandCenter() {
                         </div>
                         <p className="text-xs" style={{ color: C.charcoal }}>{item.note}</p>
                         <p className="text-xs italic" style={{ color: C.sage }}>Analytics: {item.analyticsNote}</p>
+                        {"reAuthUrl" in item && item.reAuthUrl && (
+                          <div className="pt-1">
+                            <Button
+                              size="sm"
+                              className="rounded-xl text-[11px] h-7 px-3"
+                              style={{ background: C.rose + "22", color: C.rose, border: `1px solid ${C.rose}44` }}
+                              onClick={() => window.open(item.reAuthUrl as string, "_blank")}
+                            >
+                              🔄 Re-connect {item.platform.split(" ")[0]}
+                            </Button>
+                            <p className="text-[10px] mt-1" style={{ color: C.charcoal }}>Opens OAuth flow → copy new token → update in Vercel env vars → redeploy</p>
+                          </div>
+                        )}
                         {item.testKeys.length > 0 && (
                           <div className="flex flex-wrap gap-2 pt-1">
                             {item.testKeys.map((tk) => {

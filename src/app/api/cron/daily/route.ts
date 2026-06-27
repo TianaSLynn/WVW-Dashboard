@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getTodayPlatforms, getTodayTheme } from "@/lib/schedule";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 import type { Platform } from "@/lib/schedule";
 import { generateDailyPosts } from "@/lib/generate-posts";
 import { postToLinkedIn } from "@/lib/linkedin";
@@ -54,9 +54,7 @@ export async function GET(req: NextRequest) {
   }
 
   const results: Record<string, Result> = {};
-  const baseUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "https://wvw-dashboard.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://wvw-command.netlify.app";
 
   const log = (platform: string, text: string, r: Result) => {
     results[platform] = r;

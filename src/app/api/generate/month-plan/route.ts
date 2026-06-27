@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

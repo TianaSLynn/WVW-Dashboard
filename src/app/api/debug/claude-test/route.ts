@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 export async function GET() {
   const apiKey = process.env.ANTHROPIC_API_KEY;

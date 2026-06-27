@@ -3,7 +3,7 @@ import { getTodayPlatforms, getTodayTheme } from "@/lib/schedule";
 import { generateDailyPosts } from "@/lib/generate-posts";
 import { supabase } from "@/lib/supabase";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({})) as { theme?: string; platforms?: string[] };

@@ -1,0 +1,14 @@
+{
+  "name": "WVW Intelligence Hub",
+  "short_name": "WVW",
+  "description": "Wholistic Vibes Wellness — Command Center",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F0E8",
+  "theme_color": "#1C3A2A",
+  "orientation": "any",
+  "icons": [
+    { "src": "/wvw-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/wvw-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

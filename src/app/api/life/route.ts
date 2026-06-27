@@ -4,7 +4,7 @@ import { buildAndSendMorning } from "@/lib/morning-briefing";
 import { buildAndSendEvening } from "@/lib/evening-briefing";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 function currentQuarter(today: string): { quarter: string; year: number; quarter_num: number } {
   const [y, m] = today.split("-").map(Number);

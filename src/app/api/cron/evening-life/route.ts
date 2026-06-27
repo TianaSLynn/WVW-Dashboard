@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { buildAndSendEvening } from "@/lib/evening-briefing";
 
-export const maxDuration = 60;
+export const runtime = 'edge';
 
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
