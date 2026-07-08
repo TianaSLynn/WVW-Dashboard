@@ -1,23 +1,20 @@
-import { postToLinkedIn } from "./linkedin";
 import { postToBluesky, postToBlueskyPersonal } from "./bluesky";
-import { postToFacebook, postToInstagram, postToThreads } from "./facebook";
+import { postToFacebook, postToInstagram } from "./facebook";
 import { postToTwitter } from "./twitter";
 import { queueInBuffer } from "./buffer";
 
+function viaBuffer(envVar: string, label: string, text: string): Promise<void> {
+  const profileId = process.env[envVar];
+  if (!process.env.BUFFER_ACCESS_TOKEN || !profileId) throw new Error(`${label} Buffer not configured — set BUFFER_ACCESS_TOKEN and ${envVar}`);
+  return queueInBuffer([profileId], text);
+}
+
 export async function postToPlatform(platform: string, text: string): Promise<void> {
   switch (platform) {
-    case "linkedin_personal": {
-      const urn = process.env.LINKEDIN_PERSON_URN;
-      if (!urn) throw new Error("LINKEDIN_PERSON_URN not set");
-      await postToLinkedIn(text, urn);
-      return;
-    }
-    case "linkedin_wvw": {
-      const urn = process.env.LINKEDIN_ORG_URN;
-      if (!urn) throw new Error("LINKEDIN_ORG_URN not set");
-      await postToLinkedIn(text, urn, true);
-      return;
-    }
+    case "linkedin_personal":
+      return viaBuffer("BUFFER_PROFILE_LINKEDIN_PERSONAL", "LinkedIn Personal", text);
+    case "linkedin_wvw":
+      return viaBuffer("BUFFER_PROFILE_LINKEDIN_WVW", "LinkedIn WVW", text);
     case "bluesky":
       return postToBluesky(text);
     case "bluesky_personal":
@@ -32,14 +29,11 @@ export async function postToPlatform(platform: string, text: string): Promise<vo
     case "facebook":
       return postToFacebook(text);
     case "threads":
-      return postToThreads(text);
+      return viaBuffer("BUFFER_PROFILE_THREADS", "Threads", text);
     case "twitter":
       return postToTwitter(text);
-    case "tiktok": {
-      const profileId = process.env.BUFFER_PROFILE_TIKTOK;
-      if (!process.env.BUFFER_ACCESS_TOKEN || !profileId) throw new Error("TikTok Buffer not configured");
-      return queueInBuffer([profileId], text);
-    }
+    case "tiktok":
+      return viaBuffer("BUFFER_PROFILE_TIKTOK", "TikTok", text);
     default:
       throw new Error(`Unsupported platform for queue: ${platform}`);
   }

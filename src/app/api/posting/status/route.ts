@@ -4,15 +4,13 @@ import { readPostLog } from "@/lib/logger";
 export async function GET() {
   const connections = {
     anthropic_key:     !!process.env.ANTHROPIC_API_KEY,
-    anthropic_key_hint: (() => { const k = process.env.ANTHROPIC_API_KEY ?? ""; return k ? `${k.slice(0, 14)}...${k.slice(-4)} (${k.length} chars)` : "not set"; })(),
-    linkedin_token:    !!process.env.LINKEDIN_ACCESS_TOKEN,
-    linkedin_person:   !!process.env.LINKEDIN_PERSON_URN,
-    linkedin_org:      !!process.env.LINKEDIN_ORG_URN,
+    linkedin_personal_buffer: !!(process.env.BUFFER_ACCESS_TOKEN && process.env.BUFFER_PROFILE_LINKEDIN_PERSONAL),
+    linkedin_wvw_buffer:      !!(process.env.BUFFER_ACCESS_TOKEN && process.env.BUFFER_PROFILE_LINKEDIN_WVW),
     bluesky:           !!(process.env.BLUESKY_IDENTIFIER && process.env.BLUESKY_APP_PASSWORD),
     bluesky_personal:  !!(process.env.BLUESKY_PERSONAL_IDENTIFIER && process.env.BLUESKY_PERSONAL_APP_PASSWORD),
     facebook:          !!(process.env.FACEBOOK_PAGE_ACCESS_TOKEN && process.env.FACEBOOK_PAGE_ID),
     instagram:         !!(process.env.FACEBOOK_PAGE_ACCESS_TOKEN && process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID),
-    threads:           !!(process.env.THREADS_ACCESS_TOKEN && process.env.THREADS_USER_ID),
+    threads_buffer:    !!(process.env.BUFFER_ACCESS_TOKEN && process.env.BUFFER_PROFILE_THREADS),
     tiktok_buffer:     !!(process.env.BUFFER_ACCESS_TOKEN && process.env.BUFFER_PROFILE_TIKTOK),
   };
 

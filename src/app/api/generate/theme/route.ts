@@ -1,17 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { BRAND_VOICE } from "@/lib/brand-voice";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM = `You are the content strategist for Wholistic Vibes Wellness (WVW), a B2B organizational consulting practice founded by Tiána Lynn.
-
-Brand voice: calm, grounded, structured, powerful, intentional, luxury positioning.
-Never: influencer energy, hollow affirmations, performative empathy, fluff, generic content, over-explaining.
-Tone always: lived experience is specific, neurodivergence named directly, systems named as systems, B2B authority.
-
-Core line: "Soft in appearance. Uncompromising in practice."
-Primary audience: HR leaders, operations executives, nonprofit directors, government agencies.
-Core themes: burnout/moral exhaustion, invisible labor, neurodivergence at work, Black identity in professional spaces, organizational systems design, rest as strategy, psychological safety.`;
+const SYSTEM = BRAND_VOICE;
 
 export async function POST(req: NextRequest) {
   const { theme } = await req.json();

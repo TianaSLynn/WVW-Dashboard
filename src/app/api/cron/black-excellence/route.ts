@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { generateBlackExcellence, getTodayBlackExcellenceCategory } from "@/lib/generate-posts";
-import { postToLinkedIn } from "@/lib/linkedin";
-import { postToFacebook, postToThreads } from "@/lib/facebook";
+import { postToFacebook } from "@/lib/facebook";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
+import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
 import { sendCronSummary } from "@/lib/notify";
 
@@ -40,11 +40,14 @@ export async function GET(req: NextRequest) {
 
   // ── Community platforms — educational/honoring content ──
 
-  // Threads
-  if (process.env.THREADS_ACCESS_TOKEN && process.env.THREADS_USER_ID) {
-    results.threads = await run(() => postToThreads(posts.threads));
-  } else {
-    results.threads = { status: "skipped", error: "Threads not configured" };
+  // Threads (Buffer)
+  {
+    const profileId = process.env.BUFFER_PROFILE_THREADS;
+    if (process.env.BUFFER_ACCESS_TOKEN && profileId) {
+      results.threads = await run(() => queueInBuffer([profileId], posts.threads));
+    } else {
+      results.threads = { status: "skipped", error: "Threads Buffer not configured" };
+    }
   }
 
   // Bluesky Personal (Tiána's account)
@@ -56,12 +59,14 @@ export async function GET(req: NextRequest) {
 
   // ── WVW org pages — consulting/brand lens ──
 
-  // LinkedIn WVW Page
-  const orgUrn = process.env.LINKEDIN_ORG_URN;
-  if (process.env.LINKEDIN_ACCESS_TOKEN && orgUrn) {
-    results.linkedin_wvw = await run(() => postToLinkedIn(posts.linkedin_wvw, orgUrn));
-  } else {
-    results.linkedin_wvw = { status: "skipped", error: "LinkedIn WVW not configured" };
+  // LinkedIn WVW Page (Buffer)
+  {
+    const profileId = process.env.BUFFER_PROFILE_LINKEDIN_WVW;
+    if (process.env.BUFFER_ACCESS_TOKEN && profileId) {
+      results.linkedin_wvw = await run(() => queueInBuffer([profileId], posts.linkedin_wvw));
+    } else {
+      results.linkedin_wvw = { status: "skipped", error: "LinkedIn WVW Buffer not configured" };
+    }
   }
 
   // Facebook WVW Page

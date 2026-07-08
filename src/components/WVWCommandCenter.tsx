@@ -3622,8 +3622,8 @@ export default function WVWCommandCenter() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle className="font-serif text-xl">Top Niche Signals</CardTitle>
-                        <CardDescription style={{ color: C.charcoal }}>Live Reddit signals from your content niches — updated hourly.</CardDescription>
+                        <CardTitle className="font-serif text-xl">Structural Care Signals</CardTitle>
+                        <CardDescription style={{ color: C.charcoal }}>Live conversations on Black mental health, CHW structural care, and neuroinclusion — updated hourly.</CardDescription>
                       </div>
                       <button
                         onClick={fetchReddit}
@@ -3713,7 +3713,7 @@ export default function WVWCommandCenter() {
                 <Card className="rounded-3xl shadow-none" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
                   <CardHeader>
                     <CardTitle className="font-serif text-xl">Theme Converter</CardTitle>
-                    <CardDescription style={{ color: C.charcoal }}>Turn one live theme into a complete content stack via Claude.</CardDescription>
+                    <CardDescription style={{ color: C.charcoal }}>Turn one live signal into a full, on-brand structural-care content stack via Claude.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <select
@@ -4007,14 +4007,13 @@ export default function WVWCommandCenter() {
                 ) : (
                   [
                     { label: "Claude AI (Generation)", key: "anthropic_key" },
-                    { label: "LinkedIn Token",    key: "linkedin_token" },
-                    { label: "LinkedIn Personal", key: "linkedin_person" },
-                    { label: "LinkedIn WVW Page", key: "linkedin_org" },
+                    { label: "LinkedIn Personal (Buffer)", key: "linkedin_personal_buffer" },
+                    { label: "LinkedIn WVW Page (Buffer)", key: "linkedin_wvw_buffer" },
                     { label: "Bluesky",           key: "bluesky" },
                     { label: "Bluesky Personal",  key: "bluesky_personal" },
                     { label: "Facebook WVW",      key: "facebook" },
                     { label: "Instagram (Meta)",  key: "instagram" },
-                    { label: "Threads",           key: "threads" },
+                    { label: "Threads (Buffer)",  key: "threads_buffer" },
                     { label: "TikTok (caption → Buffer, post video manually)", key: "tiktok_buffer" },
                   ].map(({ label, key }) => {
                     const connected = postingStatus?.connections[key] ?? false;
@@ -4160,8 +4159,9 @@ export default function WVWCommandCenter() {
                         {ALL_PLATFORMS.map(({ key, label }) => {
                           const on = selectedPlatforms.includes(key);
                           const connected = postingStatus?.connections[
-                            key === "linkedin_personal" ? "linkedin_token"
-                            : key === "linkedin_wvw" ? "linkedin_org"
+                            key === "linkedin_personal" ? "linkedin_personal_buffer"
+                            : key === "linkedin_wvw" ? "linkedin_wvw_buffer"
+                            : key === "threads" ? "threads_buffer"
                             : key
                           ];
                           return (
@@ -4192,16 +4192,16 @@ export default function WVWCommandCenter() {
                       )}
                     </div>
 
-                    {!postingStatus?.connections.linkedin_token && (
+                    {!(postingStatus?.connections.linkedin_personal_buffer && postingStatus?.connections.linkedin_wvw_buffer) && (
                       <a
-                        href="/api/auth/linkedin"
+                        href="https://publish.buffer.com/channels"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 w-full rounded-2xl py-2.5 text-sm font-medium border transition-colors"
                         style={{ borderColor: C.gold, color: C.charcoal, background: C.ivory }}
                       >
                         <Link2 className="w-4 h-4" style={{ color: C.gold }} />
-                        Connect LinkedIn
+                        Connect LinkedIn in Buffer
                       </a>
                     )}
 
@@ -4270,7 +4270,8 @@ export default function WVWCommandCenter() {
                       <p><strong style={{ color: C.warmBlack }}>Black Excellence cron:</strong> Daily 3pm ET (20:00 UTC) · Threads, Bluesky, LinkedIn WVW, Facebook</p>
                       <p><strong style={{ color: C.warmBlack }}>Newsletter cron:</strong> Mon / Wed / Fri 1pm ET (18:00 UTC)</p>
                       <p><strong style={{ color: C.warmBlack }}>Instagram:</strong> carousel posts via Meta API</p>
-                      <p><strong style={{ color: C.warmBlack }}>Threads / Facebook:</strong> posts directly</p>
+                      <p><strong style={{ color: C.warmBlack }}>Facebook:</strong> posts directly</p>
+                      <p><strong style={{ color: C.warmBlack }}>LinkedIn / Threads / TikTok:</strong> queued via Buffer</p>
                       <p><strong style={{ color: C.warmBlack }}>TikTok:</strong> queued in Buffer (not yet configured)</p>
                     </div>
                   </CardContent>
@@ -4445,9 +4446,9 @@ export default function WVWCommandCenter() {
                     <div className="flex items-center justify-between">
                       <div>
                         <CardTitle className="font-serif text-xl flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4" style={{ color: C.forest }} /> Top Reddit Signals
+                          <TrendingUp className="w-4 h-4" style={{ color: C.forest }} /> Top Structural Care Signals
                         </CardTitle>
-                        <CardDescription style={{ color: C.charcoal }}>Live from r/burnout, r/ADHD, r/blackmentalhealth, r/humanresources — what your niche is talking about right now.</CardDescription>
+                        <CardDescription style={{ color: C.charcoal }}>Live from r/burnout, r/ADHD, r/blackmentalhealth, r/humanresources, r/publichealth — what Black workers, CHWs, and neurodivergent staff are talking about right now.</CardDescription>
                       </div>
                       <button
                         className="text-xs px-3 py-1.5 rounded-full border transition-colors shrink-0"
@@ -5445,13 +5446,13 @@ export default function WVWCommandCenter() {
                 <CardContent className="space-y-3">
                   {[
                     {
-                      platform: "LinkedIn Personal + WVW",
+                      platform: "LinkedIn Personal + WVW (via Buffer)",
                       testKeys: ["linkedin_personal", "linkedin_wvw"] as string[],
-                      keys: ["LINKEDIN_ACCESS_TOKEN", "LINKEDIN_PERSON_URN", "LINKEDIN_ORG_URN"],
-                      postStatus: postingStatus?.connections.linkedin_token && postingStatus?.connections.linkedin_person,
-                      note: "Token expires every 60 days. If posting fails with REVOKED_ACCESS_TOKEN, click Re-connect below.",
-                      analyticsNote: "Add r_organization_social scope to pull live follower + engagement data",
-                      reAuthUrl: "/api/auth/linkedin",
+                      keys: ["BUFFER_ACCESS_TOKEN", "BUFFER_PROFILE_LINKEDIN_PERSONAL", "BUFFER_PROFILE_LINKEDIN_WVW"],
+                      postStatus: postingStatus?.connections.linkedin_personal_buffer && postingStatus?.connections.linkedin_wvw_buffer,
+                      note: "Connect both LinkedIn accounts as channels in Buffer, then get their profile IDs from https://api.buffer.com/1/profiles.json?access_token=YOUR_TOKEN",
+                      analyticsNote: "Buffer's classic API does not expose LinkedIn follower/engagement analytics",
+                      reAuthUrl: "https://publish.buffer.com/channels",
                     },
                     {
                       platform: "Bluesky WVW + Personal",
@@ -5478,13 +5479,13 @@ export default function WVWCommandCenter() {
                       analyticsNote: "Add instagram_manage_insights scope for impressions + reach",
                     },
                     {
-                      platform: "Threads",
+                      platform: "Threads (via Buffer)",
                       testKeys: ["threads"] as string[],
-                      keys: ["THREADS_ACCESS_TOKEN", "THREADS_USER_ID"],
-                      postStatus: postingStatus?.connections.threads,
-                      note: "Token expires every 60 days. If posting fails with Invalid OAuth access token, click Re-connect below.",
-                      analyticsNote: "Add threads_manage_insights scope for Threads analytics",
-                      reAuthUrl: "/api/auth/threads",
+                      keys: ["BUFFER_ACCESS_TOKEN", "BUFFER_PROFILE_THREADS"],
+                      postStatus: postingStatus?.connections.threads_buffer,
+                      note: "Connect Threads as a channel in Buffer, then get its profile ID from https://api.buffer.com/1/profiles.json?access_token=YOUR_TOKEN",
+                      analyticsNote: "Buffer's classic API does not expose Threads analytics",
+                      reAuthUrl: "https://publish.buffer.com/channels",
                     },
                     {
                       platform: "TikTok (via Buffer)",
@@ -5503,11 +5504,11 @@ export default function WVWCommandCenter() {
                       analyticsNote: "Required for calendar, recent post log, and blog publishing to work",
                     },
                     {
-                      platform: "Reddit Signals (Trends tab)",
+                      platform: "Structural Care Signals (Trends tab)",
                       testKeys: [] as string[],
                       keys: [] as string[],
                       postStatus: true,
-                      note: "Uses Reddit's public JSON API — no credentials required. Pulls live signals from r/burnout, r/ADHD, r/blackmentalhealth, r/humanresources, r/nonprofit, and more. View signals in the Trends tab.",
+                      note: "Uses Reddit's public JSON API — no credentials required. Pulls live signals from r/burnout, r/ADHD, r/blackmentalhealth, r/humanresources, r/nonprofit, r/publichealth, r/socialwork (CHW/frontline), and more. Also feeds the top daily signal directly into automated post generation. View signals in the Trends tab.",
                       analyticsNote: "No API key needed — Reddit public feed is always live",
                     },
                     {

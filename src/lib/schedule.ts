@@ -16,6 +16,7 @@ const CONTENT_PILLARS = [
   "Psychological Safety",
   "Neuroinclusion",
   "Burnout / Moral Injury",
+  "CHW Structural Care",
   "CEO / BTS",
   "Unicorn Wisdoms",
   "WVW Academy",

@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { generateWisdoms } from "@/lib/generate-posts";
-import { postToLinkedIn } from "@/lib/linkedin";
-import { postToFacebook, postToThreads } from "@/lib/facebook";
+import { postToFacebook } from "@/lib/facebook";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
+import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
 import { sendCronSummary } from "@/lib/notify";
 
@@ -38,20 +38,20 @@ export async function GET(req: NextRequest) {
 
   const results: Record<string, Result> = {};
 
-  // ── LinkedIn Personal ──
-  const personUrn = process.env.LINKEDIN_PERSON_URN;
-  if (process.env.LINKEDIN_ACCESS_TOKEN && personUrn) {
-    results.linkedin_personal = await run(() => postToLinkedIn(wisdom, personUrn));
+  // ── LinkedIn Personal (Buffer) ──
+  const personProfile = process.env.BUFFER_PROFILE_LINKEDIN_PERSONAL;
+  if (process.env.BUFFER_ACCESS_TOKEN && personProfile) {
+    results.linkedin_personal = await run(() => queueInBuffer([personProfile], wisdom));
   } else {
-    results.linkedin_personal = { status: "skipped", error: "LinkedIn not configured" };
+    results.linkedin_personal = { status: "skipped", error: "LinkedIn Personal Buffer not configured" };
   }
 
-  // ── LinkedIn WVW Page ──
-  const orgUrn = process.env.LINKEDIN_ORG_URN;
-  if (process.env.LINKEDIN_ACCESS_TOKEN && orgUrn) {
-    results.linkedin_wvw = await run(() => postToLinkedIn(wisdom, orgUrn, true));
+  // ── LinkedIn WVW Page (Buffer) ──
+  const orgProfile = process.env.BUFFER_PROFILE_LINKEDIN_WVW;
+  if (process.env.BUFFER_ACCESS_TOKEN && orgProfile) {
+    results.linkedin_wvw = await run(() => queueInBuffer([orgProfile], wisdom));
   } else {
-    results.linkedin_wvw = { status: "skipped", error: "LinkedIn WVW not configured" };
+    results.linkedin_wvw = { status: "skipped", error: "LinkedIn WVW Buffer not configured" };
   }
 
   // ── Facebook WVW Page ──
@@ -61,11 +61,12 @@ export async function GET(req: NextRequest) {
     results.facebook = { status: "skipped", error: "Facebook not configured" };
   }
 
-  // ── Threads ──
-  if (process.env.THREADS_ACCESS_TOKEN && process.env.THREADS_USER_ID) {
-    results.threads = await run(() => postToThreads(wisdom));
+  // ── Threads (Buffer) ──
+  const threadsProfile = process.env.BUFFER_PROFILE_THREADS;
+  if (process.env.BUFFER_ACCESS_TOKEN && threadsProfile) {
+    results.threads = await run(() => queueInBuffer([threadsProfile], wisdom));
   } else {
-    results.threads = { status: "skipped", error: "Threads not configured" };
+    results.threads = { status: "skipped", error: "Threads Buffer not configured" };
   }
 
   // ── Bluesky WVW ──

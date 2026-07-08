@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { generateDailyPosts } from "@/lib/generate-posts";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
-import { postToThreads } from "@/lib/facebook";
+import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
 import { sendCronSummary } from "@/lib/notify";
 import { getTodayTheme } from "@/lib/schedule";
@@ -41,11 +41,14 @@ export async function GET(req: NextRequest) {
 
   const results: Record<string, Result> = {};
 
-  // Threads — morning observation
-  if (process.env.THREADS_ACCESS_TOKEN && process.env.THREADS_USER_ID) {
-    results.threads = await run(() => postToThreads(posts.threads ?? ""));
-  } else {
-    results.threads = { status: "skipped", error: "Threads not configured" };
+  // Threads (Buffer) — morning observation
+  {
+    const profileId = process.env.BUFFER_PROFILE_THREADS;
+    if (process.env.BUFFER_ACCESS_TOKEN && profileId) {
+      results.threads = await run(() => queueInBuffer([profileId], posts.threads ?? ""));
+    } else {
+      results.threads = { status: "skipped", error: "Threads Buffer not configured" };
+    }
   }
 
   // Bluesky WVW — brand voice

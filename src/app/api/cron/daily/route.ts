@@ -4,9 +4,8 @@ import { getTodayPlatforms, getTodayTheme } from "@/lib/schedule";
 export const runtime = 'edge';
 import type { Platform } from "@/lib/schedule";
 import { generateDailyPosts } from "@/lib/generate-posts";
-import { postToLinkedIn } from "@/lib/linkedin";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
-import { postToFacebook, postToInstagram, postToInstagramCarousel, postToThreads } from "@/lib/facebook";
+import { postToFacebook, postToInstagram, postToInstagramCarousel } from "@/lib/facebook";
 import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
 import { sendCronSummary } from "@/lib/notify";
@@ -61,23 +60,23 @@ export async function GET(req: NextRequest) {
     void appendPostLog({ platform, theme, text, status: r.status as "posted" | "queued" | "error" | "skipped", error_detail: r.error });
   };
 
-  // ── LinkedIn Personal ──
+  // ── LinkedIn Personal (Buffer) ──
   if (platforms.includes("linkedin_personal") && posts.linkedin_personal) {
-    const urn = process.env.LINKEDIN_PERSON_URN;
-    if (!urn) {
-      log("linkedin_personal", posts.linkedin_personal, { status: "skipped", error: "LINKEDIN_PERSON_URN not set" });
+    const profileId = process.env.BUFFER_PROFILE_LINKEDIN_PERSONAL;
+    if (!process.env.BUFFER_ACCESS_TOKEN || !profileId) {
+      log("linkedin_personal", posts.linkedin_personal, { status: "skipped", error: "LinkedIn Personal Buffer not configured" });
     } else {
-      log("linkedin_personal", posts.linkedin_personal, await run("linkedin_personal", () => postToLinkedIn(posts.linkedin_personal!, urn)));
+      log("linkedin_personal", posts.linkedin_personal, await run("linkedin_personal", () => queueInBuffer([profileId], posts.linkedin_personal!)));
     }
   }
 
-  // ── LinkedIn WVW Page ──
+  // ── LinkedIn WVW Page (Buffer) ──
   if (platforms.includes("linkedin_wvw") && posts.linkedin_wvw) {
-    const urn = process.env.LINKEDIN_ORG_URN;
-    if (!urn) {
-      log("linkedin_wvw", posts.linkedin_wvw, { status: "skipped", error: "LINKEDIN_ORG_URN not set" });
+    const profileId = process.env.BUFFER_PROFILE_LINKEDIN_WVW;
+    if (!process.env.BUFFER_ACCESS_TOKEN || !profileId) {
+      log("linkedin_wvw", posts.linkedin_wvw, { status: "skipped", error: "LinkedIn WVW Buffer not configured" });
     } else {
-      log("linkedin_wvw", posts.linkedin_wvw, await run("linkedin_wvw", () => postToLinkedIn(posts.linkedin_wvw!, urn, true)));
+      log("linkedin_wvw", posts.linkedin_wvw, await run("linkedin_wvw", () => queueInBuffer([profileId], posts.linkedin_wvw!)));
     }
   }
 
@@ -133,12 +132,13 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Threads ──
+  // ── Threads (Buffer) ──
   if (platforms.includes("threads") && posts.threads) {
-    if (!process.env.THREADS_ACCESS_TOKEN || !process.env.THREADS_USER_ID) {
-      log("threads", posts.threads, { status: "skipped", error: "Threads not configured" });
+    const profileId = process.env.BUFFER_PROFILE_THREADS;
+    if (!process.env.BUFFER_ACCESS_TOKEN || !profileId) {
+      log("threads", posts.threads, { status: "skipped", error: "Threads Buffer not configured" });
     } else {
-      log("threads", posts.threads, await run("threads", () => postToThreads(posts.threads!)));
+      log("threads", posts.threads, await run("threads", () => queueInBuffer([profileId], posts.threads!)));
     }
   }
 

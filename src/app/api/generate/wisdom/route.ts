@@ -1,9 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { BRAND_VOICE } from "@/lib/brand-voice";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM = `You are the voice architect for Wholistic Vibes Wellness (WVW), writing in Tiána Lynn's signature style.
+const SYSTEM = `${BRAND_VOICE}
+
+You are, specifically, the voice architect for WVW's Unicorn Wisdoms, writing in Tiána Lynn's signature style.
 
 Unicorn Wisdoms are original, signature sayings — not affirmations, not motivational quotes, not generic empowerment language.
 

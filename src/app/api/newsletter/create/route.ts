@@ -1,19 +1,16 @@
 export const runtime = 'edge';
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { BRAND_VOICE } from "@/lib/brand-voice";
 
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM = `You are the editorial voice for Wholistic Vibes Wellness (WVW), writing for Tiána Lynn's newsletter audience.
+const SYSTEM = `${BRAND_VOICE}
 
-Newsletter series:
+You are, specifically, the editorial voice for WVW's newsletter, writing for Tiána Lynn's audience. Newsletter series:
 - "Ease, Power, Blackness" — personal, reflective, lived experience. First person. Warm but grounded. Named moments, not categories.
 - "Black Excellence" — systemic analysis of Black professional experience. Structural lens. B2B adjacent but personal.
-- "The Brief" — short-form WVW intelligence. Punchy. 3–5 insights. No fluff.
-
-Brand voice: calm, grounded, structured, powerful, intentional, luxury.
-Never: influencer energy, hollow affirmations, performative empathy, generic content, over-explaining.
-Core line: "Soft in appearance. Uncompromising in practice."`;
+- "The Brief" — short-form WVW intelligence. Punchy. 3–5 insights. No fluff.`;
 
 const SERIES_INSTRUCTIONS: Record<string, string> = {
   "Ease, Power, Blackness": `Write a full "Ease, Power, Blackness" newsletter issue.

@@ -1,10 +1,15 @@
 import { NextRequest } from "next/server";
-import { postToLinkedIn } from "@/lib/linkedin";
-import { postToFacebook, postToThreads } from "@/lib/facebook";
+import { postToFacebook } from "@/lib/facebook";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
 import { postToTwitter } from "@/lib/twitter";
 import { queueInBuffer } from "@/lib/buffer";
 import { appendPostLog } from "@/lib/logger";
+
+function viaBuffer(envVar: string, label: string, text: string): Promise<void> {
+  const profileId = process.env[envVar];
+  if (!process.env.BUFFER_ACCESS_TOKEN || !profileId) throw new Error(`${label} not configured — add BUFFER_ACCESS_TOKEN and ${envVar} to Vercel`);
+  return queueInBuffer([profileId], text);
+}
 
 export const runtime = 'edge';
 
@@ -22,25 +27,18 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (platform) {
-      case "linkedin_personal": {
-        const urn = process.env.LINKEDIN_PERSON_URN;
-        if (!process.env.LINKEDIN_ACCESS_TOKEN || !urn) throw new Error("LinkedIn Personal not configured");
-        await postToLinkedIn(text, urn);
+      case "linkedin_personal":
+        await viaBuffer("BUFFER_PROFILE_LINKEDIN_PERSONAL", "LinkedIn Personal", text);
         break;
-      }
-      case "linkedin_wvw": {
-        const urn = process.env.LINKEDIN_ORG_URN;
-        if (!urn) throw new Error("LinkedIn WVW not configured");
-        await postToLinkedIn(text, urn, true);
+      case "linkedin_wvw":
+        await viaBuffer("BUFFER_PROFILE_LINKEDIN_WVW", "LinkedIn WVW", text);
         break;
-      }
       case "facebook":
         if (!process.env.FACEBOOK_PAGE_ACCESS_TOKEN || !process.env.FACEBOOK_PAGE_ID) throw new Error("Facebook not configured");
         await postToFacebook(text);
         break;
       case "threads":
-        if (!process.env.THREADS_ACCESS_TOKEN || !process.env.THREADS_USER_ID) throw new Error("Threads not configured");
-        await postToThreads(text);
+        await viaBuffer("BUFFER_PROFILE_THREADS", "Threads", text);
         break;
       case "bluesky":
         if (!process.env.BLUESKY_IDENTIFIER || !process.env.BLUESKY_APP_PASSWORD) throw new Error("Bluesky not configured");
@@ -54,12 +52,9 @@ export async function POST(req: NextRequest) {
         if (!process.env.TWITTER_API_KEY || !process.env.TWITTER_ACCESS_TOKEN) throw new Error("Twitter not configured — add TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET to Vercel");
         await postToTwitter(text);
         break;
-      case "tiktok": {
-        const profileId = process.env.BUFFER_PROFILE_TIKTOK;
-        if (!process.env.BUFFER_ACCESS_TOKEN || !profileId) throw new Error("TikTok not configured — add BUFFER_ACCESS_TOKEN and BUFFER_PROFILE_TIKTOK to Vercel");
-        await queueInBuffer([profileId], text);
+      case "tiktok":
+        await viaBuffer("BUFFER_PROFILE_TIKTOK", "TikTok", text);
         break;
-      }
       default:
         throw new Error(`Unknown platform: ${platform}`);
     }

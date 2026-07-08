@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { postToBluesky, postToBlueskyPersonal } from "@/lib/bluesky";
-import { postToThreads } from "@/lib/facebook";
-import { postToLinkedIn } from "@/lib/linkedin";
+import { queueInBuffer } from "@/lib/buffer";
 
 export const runtime = 'edge';
 
@@ -15,17 +14,17 @@ type Platform =
   | "linkedin_wvw";
 
 const ENV_REQUIRED: Record<Platform, string[]> = {
-  threads: ["THREADS_ACCESS_TOKEN", "THREADS_USER_ID"],
+  threads: ["BUFFER_ACCESS_TOKEN", "BUFFER_PROFILE_THREADS"],
   bluesky: ["BLUESKY_IDENTIFIER", "BLUESKY_APP_PASSWORD"],
   bluesky_personal: ["BLUESKY_PERSONAL_IDENTIFIER", "BLUESKY_PERSONAL_APP_PASSWORD"],
-  linkedin_personal: ["LINKEDIN_ACCESS_TOKEN", "LINKEDIN_PERSON_URN"],
-  linkedin_wvw: ["LINKEDIN_ORG_ACCESS_TOKEN", "LINKEDIN_ORG_URN"],
+  linkedin_personal: ["BUFFER_ACCESS_TOKEN", "BUFFER_PROFILE_LINKEDIN_PERSONAL"],
+  linkedin_wvw: ["BUFFER_ACCESS_TOKEN", "BUFFER_PROFILE_LINKEDIN_WVW"],
 };
 
 async function runPost(platform: Platform): Promise<void> {
   switch (platform) {
     case "threads":
-      await postToThreads(TEST_MESSAGE);
+      await queueInBuffer([process.env.BUFFER_PROFILE_THREADS!], TEST_MESSAGE);
       break;
     case "bluesky":
       await postToBluesky(TEST_MESSAGE);
@@ -33,36 +32,12 @@ async function runPost(platform: Platform): Promise<void> {
     case "bluesky_personal":
       await postToBlueskyPersonal(TEST_MESSAGE);
       break;
-    case "linkedin_personal": {
-      const urn = process.env.LINKEDIN_PERSON_URN!;
-      await postToLinkedIn(TEST_MESSAGE, urn);
+    case "linkedin_personal":
+      await queueInBuffer([process.env.BUFFER_PROFILE_LINKEDIN_PERSONAL!], TEST_MESSAGE);
       break;
-    }
-    case "linkedin_wvw": {
-      const orgUrn = process.env.LINKEDIN_ORG_URN!;
-      const token = process.env.LINKEDIN_ORG_ACCESS_TOKEN!;
-      const res = await fetch("https://api.linkedin.com/v2/ugcPosts", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "X-Restli-Protocol-Version": "2.0.0",
-        },
-        body: JSON.stringify({
-          author: orgUrn,
-          lifecycleState: "PUBLISHED",
-          specificContent: {
-            "com.linkedin.ugc.ShareContent": {
-              shareCommentary: { text: TEST_MESSAGE },
-              shareMediaCategory: "NONE",
-            },
-          },
-          visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
-        }),
-      });
-      if (!res.ok) throw new Error(`LinkedIn Org ${res.status}: ${await res.text()}`);
+    case "linkedin_wvw":
+      await queueInBuffer([process.env.BUFFER_PROFILE_LINKEDIN_WVW!], TEST_MESSAGE);
       break;
-    }
   }
 }
 
