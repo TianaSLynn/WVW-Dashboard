@@ -255,6 +255,53 @@ Return format:
   return { category, ...parsed };
 }
 
+const SLOT_ANGLES: Record<number, string> = {
+  1: "morning anchor — grounding structural truth to start the workday",
+  2: "morning momentum — a specific, energizing insight from inside the work",
+  3: "late morning — research-backed or named-framework observation",
+  4: "midday — direct, sharp workplace truth (no softening)",
+  5: "afternoon — practical systems observation for leaders and practitioners",
+  6: "end of day — reflection or reframe to close out the workday",
+  7: "evening — quieter, more personal voice; feels like a genuine thought",
+  8: "night — a thought that lands gently, almost like a note to self",
+};
+
+export async function generateBlueskySlot(
+  theme: string,
+  slot: number
+): Promise<{ bluesky: string; bluesky_personal: string }> {
+  const angle = SLOT_ANGLES[slot] ?? SLOT_ANGLES[1];
+
+  const recentExcerpts = await fetchRecentExcerpts(["bluesky", "bluesky_personal"]);
+  const noRepeatBlock = buildNoRepeatBlock(recentExcerpts);
+
+  const prompt = `Generate two Bluesky posts for WVW. Theme: "${theme}". Time: ${angle}.
+${noRepeatBlock}
+Write each post carrying the energy of this time slot (${angle}). They must feel different from each other in angle and approach — not two versions of the same thought.
+
+${PLATFORM_INSTRUCTIONS.bluesky}
+
+${PLATFORM_INSTRUCTIONS.bluesky_personal}
+
+Return ONLY valid JSON:
+{
+  "bluesky": "...",
+  "bluesky_personal": "..."
+}`;
+
+  const msg = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 500,
+    system: SYSTEM,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("Claude did not return valid JSON for Bluesky slot");
+  return JSON.parse(match[0]) as { bluesky: string; bluesky_personal: string };
+}
+
 export async function generateWisdoms(count = 5): Promise<string[]> {
   const { data: recentWisdoms } = await supabase
     .from("post_log")

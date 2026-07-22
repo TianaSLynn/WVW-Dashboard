@@ -59,3 +59,10 @@ export function getTodayTheme(): string {
   const dayOfYear = Math.floor((Date.now() - start) / 86400000);
   return CONTENT_PILLARS[dayOfYear % CONTENT_PILLARS.length];
 }
+
+// Each slot (1–8) gets a distinct pillar, rotating daily so no two slots share the same topic
+export function getSlotTheme(slot: number): string {
+  const start = new Date(new Date().getFullYear(), 0, 0).getTime();
+  const dayOfYear = Math.floor((Date.now() - start) / 86400000);
+  return CONTENT_PILLARS[(dayOfYear + slot) % CONTENT_PILLARS.length];
+}
