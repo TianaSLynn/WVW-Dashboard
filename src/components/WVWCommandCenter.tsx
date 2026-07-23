@@ -98,7 +98,7 @@ const socialSummary = [
   { platform: "TikTok",            followers: 2640, engagement: 8.9, ctr: 1.9, posts: 9,  leadScore: 58 },
   { platform: "Threads",           followers: 1112, engagement: 4.9, ctr: 2.1, posts: 7,  leadScore: 51 },
   { platform: "Facebook",          followers: 1630, engagement: 3.1, ctr: 1.4, posts: 6,  leadScore: 42 },
-  { platform: "Bluesky",           followers: 930,  engagement: 6.1, ctr: 1.8, posts: 10, leadScore: 48 },
+  { platform: "Bluesky",           followers: 930,  engagement: 6.1, ctr: 1.8, posts: 63, leadScore: 65 },
 ];
 
 const monthlyTrend = [
@@ -468,6 +468,8 @@ export default function WVWCommandCenter() {
   const [wisdomResult, setWisdomResult] = useState<string | null>(null);
   const [beTriggering, setBeTriggering] = useState(false);
   const [beResult, setBeResult] = useState<string | null>(null);
+  const [bskySlotTriggering, setBskySlotTriggering] = useState<number | null>(null);
+  const [bskySlotResults, setBskySlotResults] = useState<Record<number, string>>({});
   const [statusDebug, setStatusDebug] = useState<string | null>(null);
   const [redditSignals, setRedditSignals] = useState<RedditSignal[]>([]);
   const [redditLoading, setRedditLoading] = useState(true);
@@ -4265,17 +4267,126 @@ export default function WVWCommandCenter() {
                       className="p-3 rounded-2xl text-xs space-y-1"
                       style={{ background: C.ivory, color: C.charcoal }}
                     >
-                      <p><strong style={{ color: C.warmBlack }}>Daily cron:</strong> Daily 12pm ET (17:00 UTC)</p>
+                      <p><strong style={{ color: C.warmBlack }}>Daily cron:</strong> Daily 12pm ET · LinkedIn, Instagram, Threads, TikTok, Facebook, Bluesky (1×)</p>
+                      <p><strong style={{ color: C.warmBlack }}>Bluesky slots:</strong> 8× daily · 7am, 9am, 11am, 1pm, 3pm, 5pm, 7pm, 9pm EST · different pillar each slot · 9 posts/day total</p>
                       <p><strong style={{ color: C.warmBlack }}>Wisdom cron:</strong> Daily 9am ET (14:00 UTC) · all socials</p>
                       <p><strong style={{ color: C.warmBlack }}>Black Excellence cron:</strong> Daily 3pm ET (20:00 UTC) · Threads, Bluesky, LinkedIn WVW, Facebook</p>
                       <p><strong style={{ color: C.warmBlack }}>Newsletter cron:</strong> Mon / Wed / Fri 1pm ET (18:00 UTC)</p>
                       <p><strong style={{ color: C.warmBlack }}>Instagram:</strong> carousel posts via Meta API</p>
                       <p><strong style={{ color: C.warmBlack }}>Facebook:</strong> posts directly</p>
                       <p><strong style={{ color: C.warmBlack }}>LinkedIn / Threads / TikTok:</strong> queued via Buffer</p>
-                      <p><strong style={{ color: C.warmBlack }}>TikTok:</strong> queued in Buffer (not yet configured)</p>
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* ── Bluesky Spotlight ── */}
+                {(() => {
+                  const PILLARS = [
+                    "Black Mental Health", "Psychological Safety", "Neuroinclusion",
+                    "Burnout / Moral Injury", "CHW Structural Care", "CEO / BTS",
+                    "Unicorn Wisdoms", "WVW Academy", "Rest as Strategy", "Invisible Labor",
+                  ];
+                  const PILLAR_COLORS: Record<string, string> = {
+                    "Black Mental Health": "#7C3AED", "Psychological Safety": "#059669",
+                    "Neuroinclusion": "#D97706", "Burnout / Moral Injury": "#DC2626",
+                    "CHW Structural Care": "#0369A1", "CEO / BTS": "#1C3A2A",
+                    "Unicorn Wisdoms": "#B8A06A", "WVW Academy": "#4A5E4F",
+                    "Rest as Strategy": "#C4A09A", "Invisible Labor": "#6B7280",
+                  };
+                  const slots = [
+                    { slot: 1, time: "7:00 AM", label: "Morning Anchor" },
+                    { slot: 2, time: "9:00 AM", label: "Morning Momentum" },
+                    { slot: 3, time: "11:00 AM", label: "Late Morning" },
+                    { slot: 4, time: "1:00 PM", label: "Midday" },
+                    { slot: 5, time: "3:00 PM", label: "Afternoon" },
+                    { slot: 6, time: "5:00 PM", label: "End of Day" },
+                    { slot: 7, time: "7:00 PM", label: "Evening" },
+                    { slot: 8, time: "9:00 PM", label: "Night" },
+                  ];
+                  const start = new Date(new Date().getFullYear(), 0, 0).getTime();
+                  const dayOfYear = Math.floor((Date.now() - start) / 86400000);
+                  const nowHour = new Date().getHours();
+                  const slotHours = [7, 9, 11, 13, 15, 17, 19, 21];
+
+                  return (
+                    <Card className="rounded-3xl shadow-none xl:col-span-3" style={{ background: C.bone, borderColor: "#0085FF33" }}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="font-serif text-xl flex items-center gap-2">
+                            <span style={{ color: "#0085FF" }}>🦋</span> Bluesky · 9×/day
+                          </CardTitle>
+                          <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ background: "#0085FF18", color: "#0085FF" }}>
+                            All 7 days · EST
+                          </span>
+                        </div>
+                        <CardDescription style={{ color: C.charcoal }}>
+                          Each slot generates a fresh post on a different content pillar. Both WVW + Tiána's personal account post every slot.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {slots.map(({ slot, time, label }) => {
+                            const pillar = PILLARS[(dayOfYear + slot) % PILLARS.length];
+                            const color = PILLAR_COLORS[pillar] ?? C.charcoal;
+                            const isFired = nowHour >= slotHours[slot - 1];
+                            const isTriggering = bskySlotTriggering === slot;
+                            const result = bskySlotResults[slot];
+                            return (
+                              <div
+                                key={slot}
+                                className="rounded-2xl p-3 flex flex-col gap-2"
+                                style={{
+                                  background: isFired ? C.ivory : C.ivory,
+                                  border: `1px solid ${isFired ? color + "44" : "#DDD7CD"}`,
+                                  opacity: isFired && !result ? 0.7 : 1,
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.charcoal }}>{time}</span>
+                                  {isFired && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: color + "22", color }}>fired</span>}
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-medium leading-tight" style={{ color: C.warmBlack }}>{label}</p>
+                                  <p className="text-[10px] mt-0.5 leading-tight" style={{ color }}>{pillar}</p>
+                                </div>
+                                <button
+                                  onClick={async () => {
+                                    setBskySlotTriggering(slot);
+                                    try {
+                                      const r = await fetch(`/api/cron/bluesky?slot=${slot}`, {
+                                        headers: { authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ""}` },
+                                      });
+                                      const data = await r.json() as { results?: Record<string, { status: string }> };
+                                      const statuses = Object.values(data.results ?? {}).map((v) => v.status);
+                                      setBskySlotResults((prev) => ({ ...prev, [slot]: statuses.join(" · ") || (r.ok ? "sent" : "error") }));
+                                    } catch {
+                                      setBskySlotResults((prev) => ({ ...prev, [slot]: "error" }));
+                                    } finally {
+                                      setBskySlotTriggering(null);
+                                    }
+                                  }}
+                                  disabled={isTriggering || bskySlotTriggering !== null}
+                                  className="w-full text-[10px] font-medium py-1.5 rounded-xl transition-colors"
+                                  style={{
+                                    background: isTriggering ? color + "22" : color + "15",
+                                    color,
+                                    border: `1px solid ${color}33`,
+                                  }}
+                                >
+                                  {isTriggering ? "Posting…" : result ? result : "Post Now"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10px] mt-3" style={{ color: C.charcoal }}>
+                          "Fired" = today's scheduled run already completed. "Post Now" fires immediately regardless of schedule.
+                          Requires <code className="px-1 rounded" style={{ background: "#DDD7CD" }}>BLUESKY_IDENTIFIER</code> + <code className="px-1 rounded" style={{ background: "#DDD7CD" }}>BLUESKY_APP_PASSWORD</code> in Netlify env vars.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
 
                 {/* Recent post log */}
                 <Card className="rounded-3xl shadow-none xl:col-span-2" style={{ background: C.bone, borderColor: "#DDD7CD" }}>
@@ -4867,8 +4978,8 @@ export default function WVWCommandCenter() {
                       linkedin_personal: ["Mon","Tue","Wed","Thu","Fri","Sat"],
                       linkedin_wvw:      ["Mon","Tue","Wed","Thu","Fri"],
                       threads:           ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
-                      bluesky:           ["Mon","Tue","Wed","Thu","Fri","Sat"],
-                      bluesky_personal:  ["Mon","Tue","Wed","Thu","Fri","Sat"],
+                      bluesky:           ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],
+                      bluesky_personal:  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],
                       facebook:          ["Mon","Tue","Wed","Thu","Fri"],
                       instagram:         ["Mon","Tue","Wed","Thu","Fri"],
                     };
