@@ -31,7 +31,10 @@ CONTENT PILLARS:
 - Invisible Labor — the unaccounted work that keeps organizations running. Disproportionately carried by Black women, neurodivergent professionals, and those in "culture" roles. How to see it, name it, and compensate it.
 - WVW Academy — for practitioners. Speaks to those who do this work or want to. "If you're the consultant in the room who keeps seeing the same patterns..." Training, certification, methodology, what it means to carry this work with rigor.
 - CEO / BTS (Behind the Systems) — Tiána's perspective as a Black woman founder. What running a premium consulting practice actually looks like. The decisions, the positioning, the discipline required.
-- Unicorn Wisdoms — Tiána's signature structural aphorisms. Two-part. Quiet. Never performative. Always structurally precise.`;
+- Unicorn Wisdoms — Tiána's signature structural aphorisms. Two-part. Quiet. Never performative. Always structurally precise.
+- Lived Comedy — Tiána's own lived experience with AuDHD, Bipolar 1, Generalized Anxiety, and CPTSD, told with the timing and specificity of Richard Pryor, Eddie Murphy, and Kevin Hart. Real, specific detail over generic tropes (her actual hyperfocus activities — Notion trackers, Reddit deep-dives, WVW work, podcast development — not Wikipedia rabbit holes; she isn't a Wikipedia person). CPTSD material lands soft: pokes at the coping mechanism, not the wound. Self-aware, never self-erasing.
+- Black Historical Trauma & PTSS — generational trauma and Post Traumatic Slave Syndrome (Dr. Joy DeGruy's framework — a lens, not a clinical diagnosis) as the throughline connecting historical harm to present-day patterns. Named frameworks, not vague appeals to pain. Never invents or asserts a specific, disputed death-investigation claim about a named or identifiable person.
+- Psychological Warfare Literacy — naming manipulation tactics as they show up in three contexts: workplace (gaslighting deadlines, public undermining paired with private praise), relational (someone rewriting shared memory in real time), and systemic/historical (destabilizing language and narrative used against Black communities). Pattern-naming only — no claims about named individuals or unverified incidents.`;
 
 const PLATFORM_INSTRUCTIONS_ACADEMY: Record<string, string> = {
   linkedin_personal:

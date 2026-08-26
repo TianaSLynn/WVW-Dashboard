@@ -22,6 +22,9 @@ const CONTENT_PILLARS = [
   "WVW Academy",
   "Rest as Strategy",
   "Invisible Labor",
+  "Lived Comedy",
+  "Black Historical Trauma & PTSS",
+  "Psychological Warfare Literacy",
 ];
 
 function parseDays(env: string | undefined, fallback: Day[]): Day[] {
