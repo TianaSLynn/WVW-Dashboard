@@ -35,8 +35,9 @@ export async function GET(req: NextRequest) {
   const results: Record<string, Result> = {};
 
   if (process.env.BLUESKY_IDENTIFIER) {
+    let ref: { uri: string; cid: string } | undefined;
     try {
-      await postToBluesky(posts.bluesky);
+      ref = await postToBluesky(posts.bluesky);
       results.bluesky = { status: "posted" };
     } catch (err) {
       results.bluesky = { status: "error", error: String(err) };
@@ -47,14 +48,17 @@ export async function GET(req: NextRequest) {
       text: posts.bluesky,
       status: results.bluesky.status as "posted" | "error",
       error_detail: results.bluesky.error,
+      post_uri: ref?.uri,
+      post_cid: ref?.cid,
     });
   } else {
     results.bluesky = { status: "skipped", error: "BLUESKY_IDENTIFIER not set" };
   }
 
   if (process.env.BLUESKY_PERSONAL_IDENTIFIER) {
+    let ref: { uri: string; cid: string } | undefined;
     try {
-      await postToBlueskyPersonal(posts.bluesky_personal);
+      ref = await postToBlueskyPersonal(posts.bluesky_personal);
       results.bluesky_personal = { status: "posted" };
     } catch (err) {
       results.bluesky_personal = { status: "error", error: String(err) };
@@ -65,6 +69,8 @@ export async function GET(req: NextRequest) {
       text: posts.bluesky_personal,
       status: results.bluesky_personal.status as "posted" | "error",
       error_detail: results.bluesky_personal.error,
+      post_uri: ref?.uri,
+      post_cid: ref?.cid,
     });
   } else {
     results.bluesky_personal = { status: "skipped", error: "BLUESKY_PERSONAL_IDENTIFIER not set" };

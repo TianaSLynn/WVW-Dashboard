@@ -34,14 +34,14 @@ export async function PATCH(
     const theme = (item as { theme: string }).theme;
 
     try {
-      await postToPlatform(platform, text);
+      const ref = await postToPlatform(platform, text);
 
       await supabase
         .from("content_queue")
         .update({ status: "posted", text, posted_at: new Date().toISOString() })
         .eq("id", id);
 
-      void appendPostLog({ platform, theme, text, status: "posted" });
+      void appendPostLog({ platform, theme, text, status: "posted", post_uri: ref?.uri, post_cid: ref?.cid });
 
       return Response.json({ status: "posted", platform, theme });
     } catch (err) {

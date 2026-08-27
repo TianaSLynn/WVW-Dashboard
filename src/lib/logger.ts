@@ -8,6 +8,11 @@ export interface PostLogEntry {
   excerpt: string;
   status: "posted" | "queued" | "error" | "skipped";
   error_detail?: string;
+  likes: number;
+  reposts: number;
+  replies: number;
+  quotes: number;
+  stats_updated_at?: string;
 }
 
 export async function appendPostLog(entry: {
@@ -16,6 +21,8 @@ export async function appendPostLog(entry: {
   text: string;
   status: PostLogEntry["status"];
   error_detail?: string;
+  post_uri?: string;
+  post_cid?: string;
 }): Promise<void> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   await supabase.from("post_log").insert({
@@ -25,6 +32,8 @@ export async function appendPostLog(entry: {
     excerpt: entry.text.slice(0, 400),
     status: entry.status,
     error_detail: entry.error_detail ?? null,
+    post_uri: entry.post_uri ?? null,
+    post_cid: entry.post_cid ?? null,
   });
 }
 
@@ -43,5 +52,10 @@ export async function readPostLog(): Promise<PostLogEntry[]> {
     excerpt: (row.excerpt ?? "") as string,
     status: row.status as PostLogEntry["status"],
     error_detail: (row.error_detail ?? undefined) as string | undefined,
+    likes: (row.likes ?? 0) as number,
+    reposts: (row.reposts ?? 0) as number,
+    replies: (row.replies ?? 0) as number,
+    quotes: (row.quotes ?? 0) as number,
+    stats_updated_at: (row.stats_updated_at ?? undefined) as string | undefined,
   }));
 }

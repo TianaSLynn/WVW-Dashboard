@@ -180,6 +180,11 @@ interface PostLogEntry {
   excerpt: string;
   status: "posted" | "queued" | "error" | "skipped";
   error_detail?: string;
+  likes?: number;
+  reposts?: number;
+  replies?: number;
+  quotes?: number;
+  stats_updated_at?: string;
 }
 
 interface PostingStatus {
@@ -5433,7 +5438,7 @@ export default function WVWCommandCenter() {
             {/* ── Reports ── */}
             <TabsContent value="reports" className="space-y-4">
               <div className="flex items-center gap-2 px-1">
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Community leads are live. Engagement metrics (reach, saves) require platform API access.</span>
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: C.gold + "33", color: C.charcoal }}>Community leads are live. Bluesky likes/reposts/replies are real (synced daily). Reach, impressions, and saves still require platform API access Bluesky doesn&apos;t publicly expose.</span>
               </div>
               {(() => {
                 const loggedPosts = (postingStatus?.recentPosts ?? []).filter((p) => p.status === "posted");
@@ -5450,7 +5455,16 @@ export default function WVWCommandCenter() {
                       ctaType: "Reflect",
                       datePosted: p.timestamp.slice(0, 10),
                       timePosted: p.timestamp.slice(11, 16),
-                      reach: 0, impressions: 0, views: 0, likes: 0, comments: 0, shares: 0, saves: 0,
+                      // Real for Bluesky (synced daily via /api/cron/sync-bluesky-stats using
+                      // each post's stored post_uri). reach/impressions/views/saves stay 0 --
+                      // Bluesky's public API doesn't expose them, and no other platform is wired
+                      // yet -- so rate-based scoring (calcEngagementRate etc, which divides by
+                      // reach) won't activate until that's available. Raw counts are real now.
+                      reach: 0, impressions: 0, views: 0,
+                      likes: p.likes ?? 0,
+                      comments: p.replies ?? 0,
+                      shares: (p.reposts ?? 0) + (p.quotes ?? 0),
+                      saves: 0,
                       engagementRate: 0,
                       conversionFlag: false,
                       status: "Published" as import("@/types/dashboard").PostStatus,

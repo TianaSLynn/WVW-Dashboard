@@ -9,7 +9,9 @@ function viaBuffer(envVar: string, label: string, text: string): Promise<void> {
   return queueInBuffer([profileId], text);
 }
 
-export async function postToPlatform(platform: string, text: string): Promise<void> {
+export interface PostDispatchResult { uri?: string; cid?: string }
+
+export async function postToPlatform(platform: string, text: string): Promise<PostDispatchResult | void> {
   switch (platform) {
     case "linkedin_personal":
       return viaBuffer("BUFFER_PROFILE_LINKEDIN_PERSONAL", "LinkedIn Personal", text);
