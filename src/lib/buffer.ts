@@ -1,27 +1,68 @@
-export async function queueInBuffer(profileIds: string[], text: string, imageUrl?: string): Promise<void> {
+// Buffer's classic v1 REST API (api.buffer.com/1/updates/create.json) is dead --
+// confirmed 2026-08 by testing it directly: every request, with a verified-valid
+// token, comes back `{"errors":[{"message":"Unsupported Content-Type"}]}` no
+// matter the auth method. api.buffer.com now serves GraphQL only. This file is
+// rewritten against that GraphQL API (createPost mutation, mode: shareNow) so
+// every existing caller -- queueInBuffer(profileIds, text, imageUrl) -- keeps
+// working unchanged.
+async function gql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
   const token = process.env.BUFFER_ACCESS_TOKEN;
   if (!token) throw new Error("BUFFER_ACCESS_TOKEN not configured");
-  if (profileIds.length === 0) return;
 
-  const params = new URLSearchParams();
-  profileIds.forEach((id) => params.append("profile_ids[]", id));
-  params.set("text", text);
-  if (imageUrl) {
-    params.set("media[picture]", imageUrl);
-    params.set("media[thumbnail]", imageUrl);
-  }
-
-  const res = await fetch("https://api.buffer.com/1/updates/create.json", {
+  const response = await fetch("https://api.buffer.com", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/x-www-form-urlencoded",
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
     },
-    body: params.toString(),
+    body: JSON.stringify({ query, variables }),
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Buffer ${res.status}: ${err}`);
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Buffer ${response.status}: ${errText}`);
+  }
+
+  const json = await response.json();
+  if (json.errors?.length) {
+    throw new Error(`Buffer GraphQL error: ${json.errors.map((e: { message: string }) => e.message).join("; ")}`);
+  }
+  return json.data as T;
+}
+
+const CREATE_POST_MUTATION = `
+  mutation CreatePost($input: CreatePostInput!) {
+    createPost(input: $input) {
+      ... on PostActionSuccess {
+        post { id status }
+      }
+      ... on MutationError {
+        message
+      }
+    }
+  }
+`;
+
+export async function queueInBuffer(profileIds: string[], text: string, imageUrl?: string): Promise<void> {
+  if (profileIds.length === 0) return;
+
+  const assets = imageUrl ? [{ image: { url: imageUrl } }] : [];
+
+  for (const channelId of profileIds) {
+    const input = {
+      channelId,
+      text,
+      schedulingType: "automatic",
+      mode: "shareNow",
+      needsApproval: false,
+      assets,
+    };
+    const data = await gql<{ createPost: { message?: string; post?: { id: string; status: string } } }>(
+      CREATE_POST_MUTATION,
+      { input }
+    );
+    if (data.createPost?.message) {
+      throw new Error(`Buffer createPost failed for channel ${channelId}: ${data.createPost.message}`);
+    }
   }
 }
